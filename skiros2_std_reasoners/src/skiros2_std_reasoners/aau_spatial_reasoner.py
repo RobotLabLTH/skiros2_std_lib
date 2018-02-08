@@ -104,6 +104,9 @@ class AauSpatialReasoner(DiscreteReasoner):
             log.info(self.__class__.__name__, "Adding FrameId {} to scene.".format(self._base_frame))
             root.setProperty("skiros:FrameId", self._base_frame)
             self._wmi.updateElement(root, self.__class__.__name__)
+        for _, e in self._wmi.getRecursive(root.id, "skiros:spatiallyRelated").iteritems():
+            if not e.id=="skiros:Scene-0":
+                self._updateTfList(e)
 
     def _getParentFrame(self, e):
         c_rel = e.getRelation(pred=self._spatial_rels, obj="-1")
@@ -181,7 +184,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             element.setData(":PoseStampedMsg", self._tlb.transform(element.getData(":PoseStampedMsg"), parent_frame))
         if not self._tf_list.has_key(element._id):
             log.info("[AauSpatialReasoner] Publishing {} parent: {}".format(element, parent_frame))
-        if element.hasProperty("skiros:LinkedToFrameId"):
+        if element.hasProperty("skiros:LinkedToFrameId") and not element.hasProperty("skiros:LinkedToFrameId", ""):
             self._linked_list[element._id] = None
         if element.hasData(":Pose"):
             element.setData(":Orientation", self._quaternion_normalize(element.getData(":Orientation")))
