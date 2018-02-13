@@ -479,16 +479,16 @@ class AauSpatialReasoner(DiscreteReasoner):
         ss = numpy.array(self.getData(sub, ":Size"))
         if ss[0]==None:
             ss = numpy.array([0, 0, 0])
-        a1 = sp-ss
-        a2 = sp+ss
+        a1 = sp-ss/2
+        a2 = sp+ss/2
         op = numpy.array(self.getData(obj, ":Position"))
         os = numpy.array(self.getData(obj, ":Size"))
         if not op[0]:
             return to_ret
         if os[0]==None:
             os = numpy.array([0, 0, 0])
-        b1 = op-os
-        b2 = op+os
+        b1 = op-os/2
+        b2 = op+os/2
         #Calculates allen intervals for the 3 axes
         to_ret.append(self._getAIRelations(a1[0], a2[0], b1[0], b2[0], 'X')[0])
         to_ret.append(self._getAIRelations(a1[1], a2[1], b1[1], b2[1], 'Y')[0])
