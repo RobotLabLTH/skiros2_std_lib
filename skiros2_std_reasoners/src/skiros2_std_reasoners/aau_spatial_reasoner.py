@@ -197,10 +197,10 @@ class AauSpatialReasoner(DiscreteReasoner):
         self._tl = tf.TransformListener(self._tlb)
         self._reset()
         rate = rospy.Rate(25)
-        while not rospy.is_shutdown():
-            rate.sleep()
+        while not rospy.is_shutdown() and not self.stopRequested:
             self._updateLinkedObjects()
             self._publishTfList()
+            rate.sleep()
 
     def onAddProperties(self, element):
         """ Add default reasoner properties to the element """
