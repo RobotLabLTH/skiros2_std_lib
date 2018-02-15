@@ -37,18 +37,18 @@ import tf.transformations as tf_conv
 from geometry_msgs.msg import TransformStamped
 import rospy
 import numpy
-        
-class AauSpatialReasoner(DiscreteReasoner):    
+
+class AauSpatialReasoner(DiscreteReasoner):
     """
     @brief Reasoner that keeps care of transformations and spatial relations
-    
+
     Keeps in self._tf_list a list of transforms to publish
-    
-    In self._linked_list keeps a list of objects that are linked to a tf already present in the tf system. 
-    
+
+    In self._linked_list keeps a list of objects that are linked to a tf already present in the tf system.
+
     Their pose is regularly updated (when changes)
-    
-    
+
+
     >>> sr = AauSpatialReasoner()
     >>> e = Element()
     >>> e2 = Element()
@@ -71,9 +71,9 @@ class AauSpatialReasoner(DiscreteReasoner):
     [':pX', ':pY', ':fZ']
     """
     def parse(self, element, action):
-        """ 
+        """
         Called by the world model every time an objects is modified
-        
+
         Internally, does 2 things: parse to object and it to the tflist
         """
         if element._id=="skiros:Scene-0" or not element.hasProperty("skiros:DiscreteReasoner", value="AauSpatialReasoner"):
@@ -85,10 +85,12 @@ class AauSpatialReasoner(DiscreteReasoner):
                 element.addRelation("skiros:Scene-0", "skiros:contain", "-1")
             self._updateTfList(element)
         elif action=="remove":
-            del self._linked_list[element._id]
-            del self._tf_list[element._id]
+            if self._linked_list.has_key(element._id):
+                del self._linked_list[element._id]
+            if self._tf_list.has_key(element._id):
+                del self._tf_list[element._id]
         return True
-        
+
     def _reset(self):
         self._tf_list = {}
         self._linked_list = {}
@@ -102,7 +104,10 @@ class AauSpatialReasoner(DiscreteReasoner):
             log.info(self.__class__.__name__, "Adding FrameId {} to scene.".format(self._base_frame))
             root.setProperty("skiros:FrameId", self._base_frame)
             self._wmi.updateElement(root, self.__class__.__name__)
-        
+        for _, e in self._wmi.getRecursive(root.id, "skiros:spatiallyRelated").iteritems():
+            if not e.id=="skiros:Scene-0":
+                self._updateTfList(e)
+
     def _getParentFrame(self, e):
         c_rel = e.getRelation(pred=self._spatial_rels, obj="-1")
         if not c_rel:
@@ -111,11 +116,11 @@ class AauSpatialReasoner(DiscreteReasoner):
         while c_rel and not parent.hasProperty('skiros:FrameId'):
             return self._getParentFrame(parent)
         return str(parent.getProperty("skiros:FrameId").value)
-        
+
     def _getTransform(self, base_frm, target_frm):
         try:
             tf = self._tlb.lookup_transform(base_frm, target_frm, rospy.Time(0), rospy.Duration(0.0))
-            return ((tf.transform.translation.x, tf.transform.translation.y, tf.transform.translation.z), 
+            return ((tf.transform.translation.x, tf.transform.translation.y, tf.transform.translation.z),
                     (tf.transform.rotation.x, tf.transform.rotation.y, tf.transform.rotation.z, tf.transform.rotation.w))
         except:
             missing = base_frm+target_frm
@@ -123,7 +128,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                 log.warn(self.__class__.__name__, "No tf found between {} {}. Linked tf will not be updated.".format(base_frm, target_frm))
                 self._missing_tf[missing] = None
             return (None, None)
-            
+
     def _updateLinkedObjects(self):
         to_update = list()
         for k, _ in list(self._linked_list.iteritems()):
@@ -140,28 +145,28 @@ class AauSpatialReasoner(DiscreteReasoner):
                 treshold = 0.001
                 #print "{} {}".format(self._vector_distance(new_p, old_p), self._vector_distance(new_o, old_o))
                 #TODO: vector distance for quaternions doesn't work, need angleShortestPath func
-                if self._vector_distance(new_p, old_p)>treshold: 
+                if self._vector_distance(new_p, old_p)>treshold:
                     e.setData(":Pose", (new_p, new_o))
                     to_update.append(e)
         for e in to_update:
             self._wmi.updateElement(e, self.__class__.__name__)
-            
+
     def _publishTfList(self):
         for _, e in list(self._tf_list.iteritems()):
             self._tb.sendTransform(e.getData(":TransformMsg"))
-        
+
     def _vector_distance(self, v1, v2):
         diff = numpy.array(v1)-numpy.array(v2)
         return numpy.linalg.norm(diff)
-        
+
     def _quaternion_normalize(self, q):
         if numpy.count_nonzero(q)==0:
             q[0] = 1.0
         norm=numpy.linalg.norm(q)
-        if norm==0: 
+        if norm==0:
            return q
         return q/norm
-            
+
     def _updateTfList(self, element):
         """
         Add an element to the list of published tfs
@@ -179,12 +184,12 @@ class AauSpatialReasoner(DiscreteReasoner):
             element.setData(":PoseStampedMsg", self._tlb.transform(element.getData(":PoseStampedMsg"), parent_frame))
         if not self._tf_list.has_key(element._id):
             log.info("[AauSpatialReasoner] Publishing {} parent: {}".format(element, parent_frame))
-        if element.hasProperty("skiros:LinkedToFrameId"):
+        if element.hasProperty("skiros:LinkedToFrameId") and not element.hasProperty("skiros:LinkedToFrameId", ""):
             self._linked_list[element._id] = None
         if element.hasData(":Pose"):
             element.setData(":Orientation", self._quaternion_normalize(element.getData(":Orientation")))
             self._tf_list[element._id] = element
-        
+
     def run(self):
         """ Run the reasoner daemon on the world model """
         self._tlb = tf.Buffer()
@@ -196,7 +201,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             rate.sleep()
             self._updateLinkedObjects()
             self._publishTfList()
-            
+
     def onAddProperties(self, element):
         """ Add default reasoner properties to the element """
         if not element.hasProperty("skiros:FrameId"):
@@ -225,7 +230,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             element.setProperty("skiros:SizeY", float)
         if not element.hasProperty("skiros:SizeZ"):
             element.setProperty("skiros:SizeZ", float)
-        
+
     def onRemoveProperties(self, element):
         """ Remove default reasoner properties to the element """
         element.removeProperty("skiros:FrameId")
@@ -241,33 +246,33 @@ class AauSpatialReasoner(DiscreteReasoner):
         element.removeProperty("skiros:SizeX")
         element.removeProperty("skiros:SizeY")
         element.removeProperty("skiros:SizeZ")
-        
+
     def hasData(self, element, get_code):
         """ Return true if the data is available in the element """
         if get_code==":Pose" or get_code==":PoseStampedMsg":
             return element.hasData(":Position") and element.hasData(":Orientation")
         elif get_code==":Position":
-            return (element.getProperty("skiros:PositionX").value!=None and 
-                    element.getProperty("skiros:PositionY").value!=None and 
+            return (element.getProperty("skiros:PositionX").value!=None and
+                    element.getProperty("skiros:PositionY").value!=None and
                     element.getProperty("skiros:PositionZ").value!=None)
         elif get_code==":Orientation":
-            return (element.getProperty("skiros:OrientationX").value!=None and 
+            return (element.getProperty("skiros:OrientationX").value!=None and
                     element.getProperty("skiros:OrientationY").value!=None and
-                    element.getProperty("skiros:OrientationZ").value!=None and 
+                    element.getProperty("skiros:OrientationZ").value!=None and
                     element.getProperty("skiros:OrientationW").value!=None)
         elif get_code==":Size":
-            return (element.getProperty("skiros:SizeX").value!=None and 
-                    element.getProperty("skiros:SizeY").value!=None and 
+            return (element.getProperty("skiros:SizeX").value!=None and
+                    element.getProperty("skiros:SizeY").value!=None and
                     element.getProperty("skiros:SizeZ").value!=None)
         else:
             log.error("[AauSpatialReasoner] Code {} not recognized".format(get_code))
             return False
-            
+
     def getData(self, element, get_code):
-        """ 
-        Return data from the element in the format indicated in get_code 
-        
-        
+        """
+        Return data from the element in the format indicated in get_code
+
+
         """
         if get_code==":Pose":
             return (element.getData(":Position"), element.getData(":Orientation"))
@@ -296,30 +301,30 @@ class AauSpatialReasoner(DiscreteReasoner):
             msg.pose.orientation.w = element.getProperty("skiros:OrientationW").value
             return msg
         elif get_code==":Position":
-            return [element.getProperty("skiros:PositionX").value, 
-                    element.getProperty("skiros:PositionY").value, 
+            return [element.getProperty("skiros:PositionX").value,
+                    element.getProperty("skiros:PositionY").value,
                     element.getProperty("skiros:PositionZ").value]
         elif get_code==":Orientation":
-            return [element.getProperty("skiros:OrientationX").value, 
-                    element.getProperty("skiros:OrientationY").value, 
-                    element.getProperty("skiros:OrientationZ").value, 
+            return [element.getProperty("skiros:OrientationX").value,
+                    element.getProperty("skiros:OrientationY").value,
+                    element.getProperty("skiros:OrientationZ").value,
                     element.getProperty("skiros:OrientationW").value]
         elif get_code==":OrientationEuler":
-            return list(tf_conv.euler_from_quaternion([element.getProperty("skiros:OrientationX").value, 
-                    element.getProperty("skiros:OrientationY").value, 
-                    element.getProperty("skiros:OrientationZ").value, 
+            return list(tf_conv.euler_from_quaternion([element.getProperty("skiros:OrientationX").value,
+                    element.getProperty("skiros:OrientationY").value,
+                    element.getProperty("skiros:OrientationZ").value,
                     element.getProperty("skiros:OrientationW").value]))
         elif get_code==":Size":
-            return [element.getProperty("skiros:SizeX").value, 
-                    element.getProperty("skiros:SizeY").value, 
+            return [element.getProperty("skiros:SizeX").value,
+                    element.getProperty("skiros:SizeY").value,
                     element.getProperty("skiros:SizeZ").value]
         else:
             log.error("[AauSpatialReasoner] Code {} not recognized".format(get_code))
             return None
-        
+
     def setData(self, element, data, set_code):
-        """ 
-        Convert user data to reasoner data and store it into given element 
+        """
+        Convert user data to reasoner data and store it into given element
         """
         if set_code==":Pose":
             return (element.setData(":Position", data[0]), element.setData(":Orientation", data[1]))
@@ -362,28 +367,28 @@ class AauSpatialReasoner(DiscreteReasoner):
             element.getProperty("skiros:SizeZ").value = data[2]
         else:
             log.error("[AauSpatialReasoner] Code {} not recognized".format(set_code))
-            return None        
+            return None
 
     def getAssociatedRelations(self):
         return [':pX', ':piX', ':mX', ':miX', ':oX', ':oiX', ':sX', ':siX', ':dX', ':diX', ':fX', ':fiX', ':eqX',
                 ':pY', ':piY', ':mY', ':miY', ':oY', ':oiY', ':sY', ':siY', ':dY', ':diY', ':fY', ':fiY', ':eqY',
                 ':pZ', ':piZ', ':mZ', ':miZ', ':oZ', ':oiZ', ':sZ', ':siZ', ':dZ', ':diZ', ':fZ', ':fiZ', ':eqZ']
-        
+
     def getAssociatedProperties(self):
         return [':Size', ':Pose', ':Position', ':Orientation', ':OrientationEuler', ':PoseStampedMsg', ':TransformMsg']
-        
+
     def _isclose(self, a, b, rel_tol=1e-06, abs_tol=0.001):
         """
         Implementation of equality check between floats
-        
+
         Absolute tolerance set to 0.001 (millimiters)
         """
         return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
-        
+
     def _getAIRelations(self, a1, a2, b1, b2, axis):
         """
         @brief Extract Allen Intervals (1 out of the 13 qualitative relations joined with metrics)
-        
+
         >>> sr = AauSpatialReasoner()
         >>> sr._getAIRelations(0, 2, 2, 4, 'X')
         [':mX']
@@ -464,8 +469,8 @@ class AauSpatialReasoner(DiscreteReasoner):
                         return [':oi'+axis, [a1-b1, b2-a1, a2-b2]]
             else:
                 return [':pi'+axis, a1-b2]
-            
-            
+
+
     def computeRelations(self, sub, obj):
         to_ret = []
         #TODO: transform pose
@@ -474,20 +479,19 @@ class AauSpatialReasoner(DiscreteReasoner):
         ss = numpy.array(self.getData(sub, ":Size"))
         if ss[0]==None:
             ss = numpy.array([0, 0, 0])
-        a1 = sp-ss
-        a2 = sp+ss
+        a1 = sp-ss/2
+        a2 = sp+ss/2
         op = numpy.array(self.getData(obj, ":Position"))
         os = numpy.array(self.getData(obj, ":Size"))
         if not op[0]:
             return to_ret
         if os[0]==None:
             os = numpy.array([0, 0, 0])
-        b1 = op-os
-        b2 = op+os
+        b1 = op-os/2
+        b2 = op+os/2
         #Calculates allen intervals for the 3 axes
         to_ret.append(self._getAIRelations(a1[0], a2[0], b1[0], b2[0], 'X')[0])
         to_ret.append(self._getAIRelations(a1[1], a2[1], b1[1], b2[1], 'Y')[0])
         to_ret.append(self._getAIRelations(a1[2], a2[2], b1[2], b2[2], 'Z')[0])
         #print to_ret
         return to_ret
-    
