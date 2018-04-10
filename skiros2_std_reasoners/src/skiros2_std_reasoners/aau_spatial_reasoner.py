@@ -289,6 +289,15 @@ class AauSpatialReasoner(DiscreteReasoner):
             msg.transform.rotation.z = element.getProperty("skiros:OrientationZ").value
             msg.transform.rotation.w = element.getProperty("skiros:OrientationW").value
             return msg
+        elif get_code==":PoseMsg":
+            msg = tfmsg.Pose()
+            msg.position.x = element.getProperty("skiros:PositionX").value
+            msg.position.y = element.getProperty("skiros:PositionY").value
+            msg.position.z = element.getProperty("skiros:PositionZ").value
+            msg.orientation.x = element.getProperty("skiros:OrientationX").value
+            msg.orientation.y = element.getProperty("skiros:OrientationY").value
+            msg.orientation.z = element.getProperty("skiros:OrientationZ").value
+            msg.orientation.w = element.getProperty("skiros:OrientationW").value
         elif get_code==":PoseStampedMsg":
             msg = tfmsg.PoseStamped()
             msg.header.frame_id = element.getProperty("skiros:BaseFrameId").value
@@ -337,6 +346,14 @@ class AauSpatialReasoner(DiscreteReasoner):
             element.getProperty("skiros:OrientationY").value = data.transform.rotation.y
             element.getProperty("skiros:OrientationZ").value = data.transform.rotation.z
             element.getProperty("skiros:OrientationW").value = data.transform.rotation.w
+        elif set_code==":PoseMsg":
+            element.getProperty("skiros:PositionX").value = data.position.x
+            element.getProperty("skiros:PositionY").value = data.position.y
+            element.getProperty("skiros:PositionZ").value = data.position.z
+            element.getProperty("skiros:OrientationX").value = data.orientation.x
+            element.getProperty("skiros:OrientationY").value = data.orientation.y
+            element.getProperty("skiros:OrientationZ").value = data.orientation.z
+            element.getProperty("skiros:OrientationW").value = data.orientation.w
         elif set_code==":PoseStampedMsg":
             element.getProperty("skiros:BaseFrameId").value = str(data.header.frame_id)
             element.getProperty("skiros:PositionX").value = data.pose.position.x
@@ -375,7 +392,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                 ':pZ', ':piZ', ':mZ', ':miZ', ':oZ', ':oiZ', ':sZ', ':siZ', ':dZ', ':diZ', ':fZ', ':fiZ', ':eqZ']
 
     def getAssociatedProperties(self):
-        return [':Size', ':Pose', ':Position', ':Orientation', ':OrientationEuler', ':PoseStampedMsg', ':TransformMsg']
+        return [':Size', ':Pose', ':Position', ':Orientation', ':OrientationEuler', ':PoseMsg', ':PoseStampedMsg', ':TransformMsg']
 
     def _isclose(self, a, b, rel_tol=1e-06, abs_tol=0.001):
         """
