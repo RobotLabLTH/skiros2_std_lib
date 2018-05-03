@@ -511,7 +511,6 @@ class AauSpatialReasoner(DiscreteReasoner):
 
     def computeRelations(self, sub, obj, with_metrics=False):
         to_ret = []
-        temp = copy(obj)
         sub_frame = sub.getProperty("skiros:FrameId").value
         obj_base_frame = obj.getProperty("skiros:BaseFrameId").value
         #transform pose: object w.r.t. frame of subject
@@ -520,8 +519,14 @@ class AauSpatialReasoner(DiscreteReasoner):
                 self._tlb = tf.Buffer()
                 self._tl = tf.TransformListener(self._tlb)
             try:
+                obj = deepcopy(obj)
+                if sub_frame=="":#If the subject is not being published, I add it manually to the frames buffer
+                    sub = deepcopy(sub)
+                    sub_frame = "temp"
+                    sub.setProperty("skiros:FrameId", sub_frame)
+                    self._tlb.set_transform(self.getData(sub, ":TransformMsg"))
                 self._tlb.lookup_transform(obj_base_frame, sub_frame, rospy.Time(0), rospy.Duration(1.0))
-                temp.setData(":PoseStampedMsg", self._tlb.transform(obj.getData(":PoseStampedMsg"), sub_frame))
+                obj.setData(":PoseStampedMsg", self._tlb.transform(obj.getData(":PoseStampedMsg"), sub_frame))
             except:
                 log.error("[computeRelations]", "Couldn't transform object in frame {} to frame {}.".format(obj_base_frame, sub_frame))
                 return to_ret
@@ -532,8 +537,8 @@ class AauSpatialReasoner(DiscreteReasoner):
             ss = numpy.array([0, 0, 0])
         a1 = sp-ss/2
         a2 = sp+ss/2
-        op = numpy.array(self.getData(temp, ":Position"))
-        os = numpy.array(self.getData(temp, ":Size"))
+        op = numpy.array(self.getData(obj, ":Position"))
+        os = numpy.array(self.getData(obj, ":Size"))
         if op[0] is None:
             return to_ret
         if os[0] is None:
