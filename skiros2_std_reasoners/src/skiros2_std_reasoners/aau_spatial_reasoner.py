@@ -221,7 +221,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         self._tb = tf.TransformBroadcaster()
         self._tl = tf.TransformListener(self._tlb)
         self._reset()
-        rate = rospy.Rate(25)
+        rate = rospy.Rate(50)
         while not rospy.is_shutdown() and not self.stopRequested:
             self._updateLinkedObjects()
             self._publishTfList()
