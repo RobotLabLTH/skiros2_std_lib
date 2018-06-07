@@ -146,7 +146,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                 if old_p[0]==None or old_o[0]==None:
                     e = deepcopy(self._wmi.getElement(k))
                     e.setData(":Pose", (new_p, new_o))
-                    self._wmi.updateReasonerProperties(e, self)
+                    self._wmi.updateProperties(e, self.__class__.__name__, self)
                     continue
                 treshold = 0.001
                 #print "{} {}".format(self._vector_distance(new_p, old_p), self._vector_distance(new_o, old_o))
@@ -154,7 +154,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                 if self._vector_distance(new_p, old_p)>treshold:
                     e = deepcopy(self._wmi.getElement(k))
                     e.setData(":Pose", (new_p, new_o))
-                    self._wmi.updateReasonerProperties(e, self)
+                    self._wmi.updateProperties(e, self.__class__.__name__, self)
         for e in self._e_to_update:
             self._wmi.updateElement(e, self.__class__.__name__)
         self._e_to_update = list()
@@ -515,6 +515,8 @@ class AauSpatialReasoner(DiscreteReasoner):
         obj_base_frame = obj.getProperty("skiros:BaseFrameId").value
         #transform pose: object w.r.t. frame of subject
         if sub_frame!=obj_base_frame:
+            if obj_base_frame=="":
+                return to_ret
             if not self._tlb or not self._tl:
                 self._tlb = tf.Buffer()
                 self._tl = tf.TransformListener(self._tlb)
