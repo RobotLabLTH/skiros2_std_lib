@@ -186,7 +186,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         """
         @brief Add an element to the list of published tfs
         """
-        element.setProperty("skiros:FrameId", element.id)
+        element.setProperty("skiros:FrameId", "{}-{}".format(element.label, element.getIdNumber()) if element.label!="" else element.id)
         parent_frame = self._getParentFrame(element)
         base_frm = element.getProperty("skiros:BaseFrameId").value
         if element.hasProperty("skiros:LinkedToFrameId") and not element.hasProperty("skiros:LinkedToFrameId", ""):
