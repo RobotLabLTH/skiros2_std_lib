@@ -109,7 +109,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             log.info(self.__class__.__name__, "Adding FrameId {} to scene.".format(self._base_frame))
             root.setProperty("skiros:FrameId", self._base_frame)
             self._wmi.updateElement(root, self.__class__.__name__)
-        for _, e in self._wmi.getRecursive(root.id, "skiros:spatiallyRelated").iteritems():
+        for e in self._wmi.getRecursive(root.id, "skiros:spatiallyRelated").values():
             self.parse(e, "add")
 
     def _getParentFrame(self, e):
@@ -186,7 +186,8 @@ class AauSpatialReasoner(DiscreteReasoner):
         """
         @brief Add an element to the list of published tfs
         """
-        element.setProperty("skiros:FrameId", "{}-{}".format(element.label, element.getIdNumber()) if element.label!="" else element.id)
+        element.setProperty("skiros:FrameId", element.id)
+        #element.setProperty("skiros:FrameId", "{}-{}".format(element.label[element.label.find(':')+1:], element.getIdNumber()) if element.label!="" else element.id[element.id.find(':')+1:])
         parent_frame = self._getParentFrame(element)
         base_frm = element.getProperty("skiros:BaseFrameId").value
         if element.hasProperty("skiros:LinkedToFrameId") and not element.hasProperty("skiros:LinkedToFrameId", ""):
@@ -206,7 +207,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                     log.warn(self.__class__.__name__, "{} transformed from base {} to base {}".format(element, base_frm, parent_frame))
                 except:
                     log.error(self.__class__.__name__, "{} failed to transform from base {} to base {}".format(element, base_frm, parent_frame))
-                    element.setProperty("skiros:PublishTf", False)
+                    element.setProperty("skiros:BaseFrameId", parent_frame)
                     return
             if not self._tf_list.has_key(element.id):
                 log.info("[AauSpatialReasoner] Publishing {} parent: {}".format(element, parent_frame))
