@@ -100,23 +100,23 @@ class AauSpatialReasoner(DiscreteReasoner):
         self._tf_list = {}
         self._linked_list = {}
         self._missing_tf = {}
-        root = self._wmi.getElement("skiros:Scene-0")
-        self._spatial_rels = self._wmi.getSubProperties("skiros:spatiallyRelated")
+        root = self._wmi.get_element("skiros:Scene-0")
+        self._spatial_rels = self._wmi.get_sub_properties("skiros:spatiallyRelated")
         if root.hasProperty("skiros:FrameId"):
             self._base_frame = root.getProperty("skiros:FrameId").value
         else:
             self._base_frame = "map"
             log.info(self.__class__.__name__, "Adding FrameId {} to scene.".format(self._base_frame))
             root.setProperty("skiros:FrameId", self._base_frame)
-            self._wmi.updateElement(root, self.__class__.__name__)
-        for e in self._wmi.getRecursive(root.id, "skiros:spatiallyRelated").values():
+            self._wmi.update_element(root, self.__class__.__name__)
+        for e in self._wmi.get_recursive(root.id, "skiros:spatiallyRelated").values():
             self.parse(e, "add")
 
     def _getParentFrame(self, e):
         c_rel = e.getRelation(pred=self._spatial_rels, obj="-1")
         if not c_rel:
             raise Exception("Element {} has not parent. Debug: {}".format(e.printState(), e.printState(True)))
-        parent = self._wmi.getElement(c_rel['src'])
+        parent = self._wmi.get_element(c_rel['src'])
         if (not parent.hasData(":Pose") or not parent.hasProperty("skiros:PublishTf", value=True)) and (not parent.hasProperty("skiros:LinkedToFrameId") or parent.hasProperty("skiros:LinkedToFrameId", "")):
             return self._getParentFrame(parent)
         else:
@@ -137,26 +137,26 @@ class AauSpatialReasoner(DiscreteReasoner):
     def _updateLinkedObjects(self):
         for k in list(self._linked_list.keys()):
             self.k = k
-            e = self._wmi.getElement(k)
+            e = self._wmi.get_element(k)
             base_frm = e.getProperty("skiros:BaseFrameId").value
             linked_frm = e.getProperty("skiros:LinkedToFrameId").value
             new_p, new_o = self._getTransform(base_frm, linked_frm)
             old_p, old_o = e.getData(":Pose")
             if new_p and new_o:
                 if old_p[0]==None or old_o[0]==None:
-                    e = deepcopy(self._wmi.getElement(k))
+                    e = deepcopy(self._wmi.get_element(k))
                     e.setData(":Pose", (new_p, new_o))
-                    self._wmi.updateProperties(e, self.__class__.__name__, self)
+                    self._wmi.update_properties(e, self.__class__.__name__, self)
                     continue
                 treshold = 0.001
                 #print "{} {}".format(self._vector_distance(new_p, old_p), self._vector_distance(new_o, old_o))
                 #TODO: vector distance for quaternions doesn't work, need angleShortestPath func
                 if self._vector_distance(new_p, old_p)>treshold:
-                    e = deepcopy(self._wmi.getElement(k))
+                    e = deepcopy(self._wmi.get_element(k))
                     e.setData(":Pose", (new_p, new_o))
-                    self._wmi.updateProperties(e, self.__class__.__name__, self)
+                    self._wmi.update_properties(e, self.__class__.__name__, self)
         for e in self._e_to_update:
-            self._wmi.updateElement(e, self.__class__.__name__)
+            self._wmi.update_element(e, self.__class__.__name__)
         self._e_to_update = list()
 
     def _publishTfList(self):
@@ -180,7 +180,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         for r in c_rel:
             if self._tf_list.has_key(r['dst']):
                 log.debug("[{}]".format(self.__class__.__name__), " {} updates child {}".format(e.id, r['dst']))
-                self._e_to_update.append(self._wmi.getElement(r['dst']))
+                self._e_to_update.append(self._wmi.get_element(r['dst']))
 
     def _updateTfList(self, element):
         """
