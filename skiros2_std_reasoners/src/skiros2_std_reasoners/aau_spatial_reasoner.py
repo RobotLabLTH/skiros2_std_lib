@@ -29,7 +29,6 @@
 #################################################################################
 
 from skiros2_common.core.discrete_reasoner import DiscreteReasoner
-from skiros2_common.core.world_element import Element
 import skiros2_common.tools.logger as log
 import tf2_ros as tf
 import tf2_geometry_msgs.tf2_geometry_msgs as tfmsg
@@ -37,7 +36,9 @@ import tf.transformations as tf_conv
 from geometry_msgs.msg import Pose, TransformStamped
 import rospy
 import numpy
-from copy import copy, deepcopy
+from copy import deepcopy
+from math import acos
+from numpy import clip
 
 class AauSpatialReasoner(DiscreteReasoner):
     """
@@ -410,7 +411,8 @@ class AauSpatialReasoner(DiscreteReasoner):
     def getAssociatedRelations(self):
         return [':pX', ':piX', ':mX', ':miX', ':oX', ':oiX', ':sX', ':siX', ':dX', ':diX', ':fX', ':fiX', ':eqX',
                 ':pY', ':piY', ':mY', ':miY', ':oY', ':oiY', ':sY', ':siY', ':dY', ':diY', ':fY', ':fiY', ':eqY',
-                ':pZ', ':piZ', ':mZ', ':miZ', ':oZ', ':oiZ', ':sZ', ':siZ', ':dZ', ':diZ', ':fZ', ':fiZ', ':eqZ']
+                ':pZ', ':piZ', ':mZ', ':miZ', ':oZ', ':oiZ', ':sZ', ':siZ', ':dZ', ':diZ', ':fZ', ':fiZ', ':eqZ'
+                ':pA', ':eqA']
 
     def getAssociatedProperties(self):
         return [':Size', ':Pose', ':Position', ':Orientation', ':OrientationEuler', ':PoseMsg', ':PoseStampedMsg', ':TransformMsg']
@@ -420,7 +422,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         """
         Implementation of equality check between floats
 
-        Absolute tolerance set to 0.001 (millimiters)
+        Absolute tolerance set to 1 (millimiters)
         """
         return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
@@ -509,6 +511,15 @@ class AauSpatialReasoner(DiscreteReasoner):
             else:
                 return [':pi'+axis, a1-b2]
 
+    def _get_orientation_relation(self, quaternion, angle_tolerance=5.0e-2):
+        """
+        @brief Generate orientation relation
+        """
+        o = 2.0 * acos(clip(abs(quaternion[3]), 0.0, 1.0))
+        if o <= angle_tolerance:
+            return (":eqA", o)
+        else:
+            return (":pA", o)
 
     def computeRelations(self, sub, obj, with_metrics=False):
         to_ret = []
@@ -542,20 +553,24 @@ class AauSpatialReasoner(DiscreteReasoner):
         a2 = sp+ss/2
         op = numpy.array(self.getData(obj, ":Position"))
         os = numpy.array(self.getData(obj, ":Size"))
+        oo = numpy.array(self.getData(obj, ":Orientation"))
         if op[0] is None:
             return to_ret
         if os[0] is None:
             os = numpy.array([0, 0, 0])
         b1 = op-os/2
         b2 = op+os/2
-        #Calculates allen intervals for the 3 axes
+
+        #Calculates allen intervals for the 3 axes + orientation alignment
         if with_metrics:
             to_ret.append(self._getAIRelations(a1[0], a2[0], b1[0], b2[0], 'X'))
             to_ret.append(self._getAIRelations(a1[1], a2[1], b1[1], b2[1], 'Y'))
             to_ret.append(self._getAIRelations(a1[2], a2[2], b1[2], b2[2], 'Z'))
+            to_ret.append(self._get_orientation_relation(oo))
         else:
             to_ret.append(self._getAIRelations(a1[0], a2[0], b1[0], b2[0], 'X')[0])
             to_ret.append(self._getAIRelations(a1[1], a2[1], b1[1], b2[1], 'Y')[0])
             to_ret.append(self._getAIRelations(a1[2], a2[2], b1[2], b2[2], 'Z')[0])
+            to_ret.append(self._get_orientation_relation(oo)[0])
         #print to_ret
         return to_ret
