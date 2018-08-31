@@ -412,7 +412,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         return [':pX', ':piX', ':mX', ':miX', ':oX', ':oiX', ':sX', ':siX', ':dX', ':diX', ':fX', ':fiX', ':eqX',
                 ':pY', ':piY', ':mY', ':miY', ':oY', ':oiY', ':sY', ':siY', ':dY', ':diY', ':fY', ':fiY', ':eqY',
                 ':pZ', ':piZ', ':mZ', ':miZ', ':oZ', ':oiZ', ':sZ', ':siZ', ':dZ', ':diZ', ':fZ', ':fiZ', ':eqZ'
-                ':pA', ':eqA']
+                ':pA', ':eqA', ':unknownT']
 
     def getAssociatedProperties(self):
         return [':Size', ':Pose', ':Position', ':Orientation', ':OrientationEuler', ':PoseMsg', ':PoseStampedMsg', ':TransformMsg']
@@ -528,7 +528,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         #transform pose: object w.r.t. frame of subject
         if sub_frame!=obj_base_frame:
             if obj_base_frame=="":
-                return to_ret
+                return [':unknownT']
             if not self._tlb or not self._tl:
                 self._tlb = tf.Buffer()
                 self._tl = tf.TransformListener(self._tlb)
@@ -543,7 +543,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                 obj.setData(":PoseStampedMsg", self._tlb.transform(obj.getData(":PoseStampedMsg"), sub_frame))
             except:
                 log.error("[computeRelations]", "Couldn't transform object in frame {} to frame {}.".format(obj_base_frame, sub_frame))
-                return to_ret
+                return [':unknownT']
         #Get corners a1,a2,b1,b2
         sp = numpy.array([0, 0, 0])
         ss = numpy.array(self.getData(sub, ":Size"))
@@ -555,7 +555,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         os = numpy.array(self.getData(obj, ":Size"))
         oo = numpy.array(self.getData(obj, ":Orientation"))
         if op[0] is None:
-            return to_ret
+            return [':unknownT']
         if os[0] is None:
             os = numpy.array([0, 0, 0])
         b1 = op-os/2
