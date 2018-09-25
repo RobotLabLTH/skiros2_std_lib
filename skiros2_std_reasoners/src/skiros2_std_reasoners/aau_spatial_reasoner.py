@@ -140,6 +140,9 @@ class AauSpatialReasoner(DiscreteReasoner):
             self.k = k
             e = self._wmi.get_element(k)
             base_frm = e.getProperty("skiros:BaseFrameId").value
+            if not e.hasProperty("skiros:LinkedToFrameId"):
+                self._linked_list.pop(k)
+                continue
             linked_frm = e.getProperty("skiros:LinkedToFrameId").value
             new_p, new_o = self._getTransform(base_frm, linked_frm)
             old_p, old_o = e.getData(":Pose")
