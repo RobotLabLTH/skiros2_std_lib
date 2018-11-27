@@ -31,9 +31,8 @@
 from skiros2_common.core.discrete_reasoner import DiscreteReasoner
 import skiros2_common.tools.logger as log
 import tf2_ros as tf
-import tf2_geometry_msgs.tf2_geometry_msgs as tfmsg
 import tf.transformations as tf_conv
-from geometry_msgs.msg import Pose, TransformStamped
+from geometry_msgs.msg import Pose, TransformStamped, PoseStamped
 import rospy
 import numpy
 from copy import deepcopy
@@ -324,7 +323,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             msg.orientation.w = element.getProperty("skiros:OrientationW").value
             return msg
         elif get_code==":PoseStampedMsg":
-            msg = tfmsg.PoseStamped()
+            msg = PoseStamped()
             msg.header.frame_id = element.getProperty("skiros:BaseFrameId").value
             msg.pose.position.x = element.getProperty("skiros:PositionX").value
             msg.pose.position.y = element.getProperty("skiros:PositionY").value
