@@ -191,37 +191,35 @@ class AauSpatialReasoner(DiscreteReasoner):
         """
         @brief Add an element to the list of published tfs
         """
-        with self._times['uno']:
-            element.setProperty("skiros:FrameId", element.id)
-            #element.setProperty("skiros:FrameId", "{}-{}".format(element.label[element.label.find(':')+1:], element.getIdNumber()) if element.label!="" else element.id[element.id.find(':')+1:])
-            parent_frame = self._getParentFrame(element)
-            base_frm = element.getProperty("skiros:BaseFrameId").value
-        with self._times['due']:
-            if element.hasProperty("skiros:LinkedToFrameId") and not element.hasProperty("skiros:LinkedToFrameId", ""):
-                self._linked_list[element.id] = None
+        element.setProperty("skiros:FrameId", element.id)
+        #element.setProperty("skiros:FrameId", "{}-{}".format(element.label[element.label.find(':')+1:], element.getIdNumber()) if element.label!="" else element.id[element.id.find(':')+1:])
+        parent_frame = self._getParentFrame(element)
+        base_frm = element.getProperty("skiros:BaseFrameId").value
+        if element.hasProperty("skiros:LinkedToFrameId") and not element.hasProperty("skiros:LinkedToFrameId", ""):
+            self._linked_list[element.id] = None
+            element.setProperty("skiros:BaseFrameId", parent_frame)
+        if not element.hasData(":Pose") or not element.hasProperty("skiros:PublishTf", value=True):
+            if self._tf_list.has_key(element.id):
+                log.info("[AauSpatialReasoner] Stop publishing {}.".format(element))
+                del self._tf_list[element.id]
+                self._updateChildren(element)
+        else:
+            if base_frm=="":
                 element.setProperty("skiros:BaseFrameId", parent_frame)
-            if not element.hasData(":Pose") or not element.hasProperty("skiros:PublishTf", value=True):
-                if self._tf_list.has_key(element.id):
-                    log.info("[AauSpatialReasoner] Stop publishing {}.".format(element))
-                    del self._tf_list[element.id]
-                    self._updateChildren(element)
-            else:
-                if base_frm=="":
+            elif base_frm != parent_frame:
+                try:
+                    element.setData(":PoseStampedMsg", self._tlb.transform(element.getData(":PoseStampedMsg"), parent_frame))
+                    log.warn(self.__class__.__name__, "{} transformed from base {} to base {}".format(element, base_frm, parent_frame))
+                except:
+                    log.error(self.__class__.__name__, "{} failed to transform from base {} to base {}".format(element, base_frm, parent_frame))
                     element.setProperty("skiros:BaseFrameId", parent_frame)
-                elif base_frm != parent_frame:
-                    try:
-                        element.setData(":PoseStampedMsg", self._tlb.transform(element.getData(":PoseStampedMsg"), parent_frame))
-                        log.warn(self.__class__.__name__, "{} transformed from base {} to base {}".format(element, base_frm, parent_frame))
-                    except:
-                        log.error(self.__class__.__name__, "{} failed to transform from base {} to base {}".format(element, base_frm, parent_frame))
-                        element.setProperty("skiros:BaseFrameId", parent_frame)
-                        return
-                if not self._tf_list.has_key(element.id):
-                    log.info("[AauSpatialReasoner] Publishing {} parent: {}".format(element, parent_frame))
-                    self._updateChildren(element)
-                element.setData(":Orientation", self._quaternion_normalize(element.getData(":Orientation")))
-                self._tf_list[element.id] = element
-        log.info("[_updateTfList]", " Uno: {:0.3f} secs Due: {:0.3f}".format(self._times['uno'].getLast(), self._times['due'].getLast()))
+                    return
+            if not self._tf_list.has_key(element.id):
+                log.info("[AauSpatialReasoner] Publishing {} parent: {}".format(element, parent_frame))
+                self._updateChildren(element)
+            element.setData(":Orientation", self._quaternion_normalize(element.getData(":Orientation")))
+            self._tb.sendTransform(element.getData(":TransformMsg"))
+            self._tf_list[element.id] = element
 
     def run(self):
         """ @brief Run the reasoner daemon on the world model """
@@ -280,18 +278,18 @@ class AauSpatialReasoner(DiscreteReasoner):
         if get_code==":Pose" or get_code==":PoseStampedMsg":
             return element.hasData(":Position") and element.hasData(":Orientation")
         elif get_code==":Position":
-            return (element.getProperty("skiros:PositionX").value!=None and
-                    element.getProperty("skiros:PositionY").value!=None and
-                    element.getProperty("skiros:PositionZ").value!=None)
+            return (element.hasProperty("skiros:PositionX", not_none=True) and
+                    element.hasProperty("skiros:PositionY", not_none=True) and
+                    element.hasProperty("skiros:PositionZ", not_none=True) )
         elif get_code==":Orientation":
-            return (element.getProperty("skiros:OrientationX").value!=None and
-                    element.getProperty("skiros:OrientationY").value!=None and
-                    element.getProperty("skiros:OrientationZ").value!=None and
-                    element.getProperty("skiros:OrientationW").value!=None)
+            return (element.hasProperty("skiros:OrientationX", not_none=True) and
+                    element.hasProperty("skiros:OrientationY", not_none=True) and
+                    element.hasProperty("skiros:OrientationZ", not_none=True) and
+                    element.hasProperty("skiros:OrientationW", not_none=True) )
         elif get_code==":Size":
-            return (element.getProperty("skiros:SizeX").value!=None and
-                    element.getProperty("skiros:SizeY").value!=None and
-                    element.getProperty("skiros:SizeZ").value!=None)
+            return (element.hasProperty("skiros:SizeX", not_none=True) and
+                    element.hasProperty("skiros:SizeY", not_none=True) and
+                    element.hasProperty("skiros:SizeZ", not_none=True) )
         else:
             log.error("[AauSpatialReasoner] Code {} not recognized".format(get_code))
             return False
