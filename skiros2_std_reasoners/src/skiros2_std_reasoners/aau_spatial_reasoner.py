@@ -38,17 +38,18 @@ import numpy
 from copy import deepcopy
 from math import acos
 from numpy import clip
+from skiros2_common.tools.time_keeper import TimeKeepers
+from skiros2_common.core.world_element import Element
 
 class AauSpatialReasoner(DiscreteReasoner):
     """
-    @brief Reasoner that keeps care of transformations and spatial relations
+    @brief Reasoner handling transformations and spatial relations
 
     Keeps in self._tf_list a list of transforms to publish
 
     In self._linked_list keeps a list of objects that are linked to a tf already present in the tf system.
 
-    Their pose is regularly updated (when changes)
-
+    Their pose is regularly updated (whenever it changes)
 
     >>> sr = AauSpatialReasoner()
     >>> e = Element()
@@ -59,27 +60,28 @@ class AauSpatialReasoner(DiscreteReasoner):
     >>> sr.setData(e,  [1.0, 1.0 ,1.0], ":Size")
     >>> sr.onAddProperties(e2)
     >>> sr.computeRelations(e, e2)
-    []
+    [':unknownT']
     >>> sr.setData(e2,  [3.0, 2.0 ,-1.0], ":Position")
     >>> sr.setData(e2,  [1.0, 1.0 ,1.0], ":OrientationEuler")
     >>> sr.setData(e2,  [1.0, 2.0 ,3.0], ":Size")
     >>> numpy.array(sr.getData(e, ":OrientationEuler"))
     array([ 1.,  1.,  1.])
     >>> sr.computeRelations(e, e2)
-    [':pX', ':oY', ':dZ']
+    [':pX', ':pY', ':fZ', ':pA']
     >>> sr.setData(e2,  [4.0, 5.0 , -2.0], ":Position")
     >>> sr.computeRelations(e, e2)
-    [':pX', ':pY', ':fZ']
+    [':pX', ':pY', ':miZ', ':pA']
     """
     def __init__(self):
         self._tlb = None
         self._tl = None
+        self._times = TimeKeepers()
 
     def parse(self, element, action):
         """
-        Called by the world model every time an objects is modified
+        @brief Called by the world model every time an objects is modified
 
-        Internally, does 2 things: parse to object and it to the tflist
+        Internally does 2 things: parse the object and in case add it to self._tflist
         """
         if element.id=="skiros:Scene-0" or not element.hasProperty("skiros:DiscreteReasoner", value="AauSpatialReasoner"):
             return True
@@ -189,34 +191,37 @@ class AauSpatialReasoner(DiscreteReasoner):
         """
         @brief Add an element to the list of published tfs
         """
-        element.setProperty("skiros:FrameId", element.id)
-        #element.setProperty("skiros:FrameId", "{}-{}".format(element.label[element.label.find(':')+1:], element.getIdNumber()) if element.label!="" else element.id[element.id.find(':')+1:])
-        parent_frame = self._getParentFrame(element)
-        base_frm = element.getProperty("skiros:BaseFrameId").value
-        if element.hasProperty("skiros:LinkedToFrameId") and not element.hasProperty("skiros:LinkedToFrameId", ""):
-            self._linked_list[element.id] = None
-            element.setProperty("skiros:BaseFrameId", parent_frame)
-        if not element.hasData(":Pose") or not element.hasProperty("skiros:PublishTf", value=True):
-            if self._tf_list.has_key(element.id):
-                log.info("[AauSpatialReasoner] Stop publishing {}.".format(element))
-                del self._tf_list[element.id]
-                self._updateChildren(element)
-        else:
-            if base_frm=="":
+        with self._times['uno']:
+            element.setProperty("skiros:FrameId", element.id)
+            #element.setProperty("skiros:FrameId", "{}-{}".format(element.label[element.label.find(':')+1:], element.getIdNumber()) if element.label!="" else element.id[element.id.find(':')+1:])
+            parent_frame = self._getParentFrame(element)
+            base_frm = element.getProperty("skiros:BaseFrameId").value
+        with self._times['due']:
+            if element.hasProperty("skiros:LinkedToFrameId") and not element.hasProperty("skiros:LinkedToFrameId", ""):
+                self._linked_list[element.id] = None
                 element.setProperty("skiros:BaseFrameId", parent_frame)
-            elif base_frm != parent_frame:
-                try:
-                    element.setData(":PoseStampedMsg", self._tlb.transform(element.getData(":PoseStampedMsg"), parent_frame))
-                    log.warn(self.__class__.__name__, "{} transformed from base {} to base {}".format(element, base_frm, parent_frame))
-                except:
-                    log.error(self.__class__.__name__, "{} failed to transform from base {} to base {}".format(element, base_frm, parent_frame))
+            if not element.hasData(":Pose") or not element.hasProperty("skiros:PublishTf", value=True):
+                if self._tf_list.has_key(element.id):
+                    log.info("[AauSpatialReasoner] Stop publishing {}.".format(element))
+                    del self._tf_list[element.id]
+                    self._updateChildren(element)
+            else:
+                if base_frm=="":
                     element.setProperty("skiros:BaseFrameId", parent_frame)
-                    return
-            if not self._tf_list.has_key(element.id):
-                log.info("[AauSpatialReasoner] Publishing {} parent: {}".format(element, parent_frame))
-                self._updateChildren(element)
-            element.setData(":Orientation", self._quaternion_normalize(element.getData(":Orientation")))
-            self._tf_list[element.id] = element
+                elif base_frm != parent_frame:
+                    try:
+                        element.setData(":PoseStampedMsg", self._tlb.transform(element.getData(":PoseStampedMsg"), parent_frame))
+                        log.warn(self.__class__.__name__, "{} transformed from base {} to base {}".format(element, base_frm, parent_frame))
+                    except:
+                        log.error(self.__class__.__name__, "{} failed to transform from base {} to base {}".format(element, base_frm, parent_frame))
+                        element.setProperty("skiros:BaseFrameId", parent_frame)
+                        return
+                if not self._tf_list.has_key(element.id):
+                    log.info("[AauSpatialReasoner] Publishing {} parent: {}".format(element, parent_frame))
+                    self._updateChildren(element)
+                element.setData(":Orientation", self._quaternion_normalize(element.getData(":Orientation")))
+                self._tf_list[element.id] = element
+        log.info("[_updateTfList]", " Uno: {:0.3f} secs Due: {:0.3f}".format(self._times['uno'].getLast(), self._times['due'].getLast()))
 
     def run(self):
         """ @brief Run the reasoner daemon on the world model """
@@ -434,11 +439,11 @@ class AauSpatialReasoner(DiscreteReasoner):
 
         >>> sr = AauSpatialReasoner()
         >>> sr._getAIRelations(0, 2, 2, 4, 'X')
-        [':mX']
+        [':mX', 0.0]
         >>> sr._getAIRelations(0, 2, -2, 0, 'X')
-        [':miX']
+        [':miX', 0.0]
         >>> sr._getAIRelations(0, 2, 0, 2, 'X')
-        [':eqX']
+        [':eqX', 0.0]
         >>> sr._getAIRelations(0, 2, 3, 6, 'X')
         [':pX', 1]
         >>> sr._getAIRelations(3, 6, 0, 2, 'X')
@@ -462,7 +467,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         >>> sr._getAIRelations(0, 0, 3, 3, 'X')
         [':pX', 3]
         >>> sr._getAIRelations(3, 3, 3, 3, 'X')
-        [':mX']
+        [':mX', 0.0]
         >>> sr._getAIRelations(4, 4, 3, 3, 'X')
         [':piX', 1]
         >>> sr._getAIRelations(0.01, 0.01, 0, 1, 'X')
