@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>skiros2_std_reasoners</name>
+  <name>skiros2_std_skills</name>
   <version>1.0.0</version>
   <description>SkiROS library of standard reasoners for world model</description>
 
