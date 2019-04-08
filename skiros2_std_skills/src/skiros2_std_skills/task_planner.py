@@ -10,7 +10,7 @@ class TaskPlan(SkillDescription):
     """
     def createDescription(self):
         #=======Params=========
-        self.addParam("Goal", "(skiros:contain skiros:LargeBox-80 skiros:Starter-52),(skiros:contain skiros:LargeBox-80 skiros:Starter-145)", ParamTypes.Required)
+        self.addParam("Goal", str, ParamTypes.Required)
         #self.addParam("TaskPlan", "", ParamTypes.Required)
 
 class task_plan(SkillBase):
@@ -55,6 +55,7 @@ class task_plan(SkillBase):
             return self.success(self._action_msg)
         elif self._skill_to_expand:
             task = deserialize_skill(self._action_msg)
+            self._skill_to_expand.setProcessor(Sequential())
             task_string = self._add_children(self._skill_to_expand, task.children)
             self._skill_to_expand = None
             return self.step("{}".format(task_string))

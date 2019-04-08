@@ -31,8 +31,9 @@
 from skiros2_common.core.discrete_reasoner import DiscreteReasoner
 import skiros2_common.tools.logger as log
 import tf2_ros as tf
+from tf2_geometry_msgs import PoseStamped
 import tf.transformations as tf_conv
-from geometry_msgs.msg import Pose, TransformStamped, PoseStamped
+from geometry_msgs.msg import Pose, TransformStamped
 import rospy
 import numpy
 from copy import deepcopy
@@ -208,9 +209,10 @@ class AauSpatialReasoner(DiscreteReasoner):
                 element.setProperty("skiros:BaseFrameId", parent_frame)
             elif base_frm != parent_frame:
                 try:
+                    print self._tlb.registration.print_me()
                     element.setData(":PoseStampedMsg", self._tlb.transform(element.getData(":PoseStampedMsg"), parent_frame))
                     log.warn(self.__class__.__name__, "{} transformed from base {} to base {}".format(element, base_frm, parent_frame))
-                except:
+                except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                     log.error(self.__class__.__name__, "{} failed to transform from base {} to base {}".format(element, base_frm, parent_frame))
                     element.setProperty("skiros:BaseFrameId", parent_frame)
                     return
@@ -533,22 +535,23 @@ class AauSpatialReasoner(DiscreteReasoner):
         #transform pose: object w.r.t. frame of subject
         if sub_frame!=obj_base_frame:
             if obj_base_frame=="":
-                return [':unknownT']
+                return [':unknownT'] if not with_metrics else [(':unknownT', -1.0)]
             if not self._tlb or not self._tl:
                 self._tlb = tf.Buffer()
                 self._tl = tf.TransformListener(self._tlb)
+                rospy.sleep(0.1)
             try:
                 obj = deepcopy(obj)
                 if sub_frame=="":#If the subject is not being published, I add it manually to the frames buffer
                     sub = deepcopy(sub)
                     sub_frame = "temp"
                     sub.setProperty("skiros:FrameId", sub_frame)
-                    self._tlb.set_transform(self.getData(sub, ":TransformMsg"))
+                    self._tlb.set_transform(self.getData(sub, ":TransformMsg"), "AauSpatialReasoner")
                 self._tlb.lookup_transform(obj_base_frame, sub_frame, rospy.Time(0), rospy.Duration(1.0))
                 obj.setData(":PoseStampedMsg", self._tlb.transform(obj.getData(":PoseStampedMsg"), sub_frame))
-            except:
+            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 log.error("[computeRelations]", "Couldn't transform object in frame {} to frame {}.".format(obj_base_frame, sub_frame))
-                return [':unknownT']
+                return [':unknownT'] if not with_metrics else [(':unknownT', -1.0)]
         #Get corners a1,a2,b1,b2
         sp = numpy.array([0, 0, 0])
         ss = numpy.array(self.getData(sub, ":Size"))
@@ -560,7 +563,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         os = numpy.array(self.getData(obj, ":Size"))
         oo = numpy.array(self.getData(obj, ":Orientation"))
         if op[0] is None:
-            return [':unknownT']
+            return [':unknownT'] if not with_metrics else [(':unknownT', -1.0)]
         if os[0] is None:
             os = numpy.array([0, 0, 0])
         b1 = op-os/2
