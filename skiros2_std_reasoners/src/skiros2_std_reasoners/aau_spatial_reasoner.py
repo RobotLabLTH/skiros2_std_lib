@@ -209,7 +209,6 @@ class AauSpatialReasoner(DiscreteReasoner):
                 element.setProperty("skiros:BaseFrameId", parent_frame)
             elif base_frm != parent_frame:
                 try:
-                    print self._tlb.registration.print_me()
                     element.setData(":PoseStampedMsg", self._tlb.transform(element.getData(":PoseStampedMsg"), parent_frame))
                     log.warn(self.__class__.__name__, "{} transformed from base {} to base {}".format(element, base_frm, parent_frame))
                 except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
