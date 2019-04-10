@@ -17,8 +17,6 @@ class task_plan(SkillBase):
     def createDescription(self):
         self.setDescription(TaskPlan(), self.__class__.__name__)
         self._expand_on_start = True
-        self._action_status = None
-        self._action_msg = None
         self._skill_to_expand = None
 
     def expand(self, skill):
@@ -29,6 +27,8 @@ class task_plan(SkillBase):
         return self.fail("Preempted.", -100)
 
     def onStart(self):
+        self._action_status = None
+        self._action_msg = None
         self._tm = TaskManagerInterface()
         return self._tm.plan(self.params["Goal"].value, self._done_planning)
 
