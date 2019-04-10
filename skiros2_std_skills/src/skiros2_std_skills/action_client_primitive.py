@@ -3,6 +3,7 @@ import skiros2_common.tools.logger as log
 import rospy
 import Queue
 
+
 class PrimitiveActionClient(PrimitiveBase):
     """
     @brief Base class for skills based on a action server.
@@ -29,18 +30,18 @@ class PrimitiveActionClient(PrimitiveBase):
         if not self.client.wait_for_server(rospy.Duration(0.5)):
             log.error("[{}]".format(self._label), "Action server {} is not available.".format(self.client.action_client.ns))
             return False
-        self.client.send_goal(self.buildGoal(), done_cb= self._doneCb, feedback_cb = self._feedbackCb)
+        self.client.send_goal(self.buildGoal(), done_cb=self._doneCb, feedback_cb=self._feedbackCb)
         return True
 
     def restart(self, goal, text="Restarting action."):
         self._done = None
-        self.client.send_goal(goal, done_cb= self._doneCb, feedback_cb = self._feedbackCb)
+        self.client.send_goal(goal, done_cb=self._doneCb, feedback_cb=self._feedbackCb)
         return self.step(text)
 
     def execute(self):
         if not self.q.empty():
             msg = self.q.get(False)
-            if self._done != None:
+            if self._done is not None:
                 return self.onDone(self._done, msg)
             else:
                 return self.onFeedback(msg)
@@ -94,7 +95,7 @@ class PrimitiveActionClient(PrimitiveBase):
         @brief To override. Called every time a new feedback msg is received.
         @return Can return self.success, self.fail or self.step
         """
-        #Do something with feedback msg
+        # Do something with feedback msg
         return self.step("")
 
     def onDone(self, status, msg):
@@ -102,5 +103,5 @@ class PrimitiveActionClient(PrimitiveBase):
         @brief To override. Called when goal is achieved.
         @return self.success or self.fail
         """
-        #Do something with result msg
+        # Do something with result msg
         return self.success("Finished. State: {} Result: {}".format(status, msg))
