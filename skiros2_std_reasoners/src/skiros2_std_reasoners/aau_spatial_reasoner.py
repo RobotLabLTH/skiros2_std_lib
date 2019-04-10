@@ -543,9 +543,12 @@ class AauSpatialReasoner(DiscreteReasoner):
                 obj = deepcopy(obj)
                 if sub_frame=="":#If the subject is not being published, I add it manually to the frames buffer
                     sub = deepcopy(sub)
-                    sub_frame = "temp"
+                    sub_frame = "subj_temp_frame"
                     sub.setProperty("skiros:FrameId", sub_frame)
                     self._tlb.set_transform(self.getData(sub, ":TransformMsg"), "AauSpatialReasoner")
+                if obj.getProperty("skiros:FrameId").value=="":#If the object is not being published, I add it manually to the frames buffer
+                    obj.setProperty("skiros:FrameId", "obj_temp_frame")
+                    self._tlb.set_transform(self.getData(obj, ":TransformMsg"), "AauSpatialReasoner")
                 self._tlb.lookup_transform(obj_base_frame, sub_frame, rospy.Time(0), rospy.Duration(1.0))
                 obj.setData(":PoseStampedMsg", self._tlb.transform(obj.getData(":PoseStampedMsg"), sub_frame))
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
