@@ -39,9 +39,10 @@ class task_plan(SkillBase):
     def _add_children(self, skill, children):
         string = ""
         for i in children:
-            skill.addChild(self.skill(i.type, i.name))
-            skill.last().specifyParamsDefault(i.ph)
-            string += "{}[{}](".format(skill.last().label, skill.last().params.printState())
+            s = self.skill(i.type, i.name)
+            s.specifyParamsDefault(i.ph)
+            skill.addChild(s)
+            string += "{}[{}](".format(s.label, s.params.printState())
             string += self._add_children(skill.last(), i.children)
             string += ")\n"
         return string
@@ -49,8 +50,8 @@ class task_plan(SkillBase):
     def execute(self):
         if self._action_status is None:
             return self.step("Planning...")
-        elif self._action_status==1:
-            return self.fail(self._action_msg, -self._action_status)
+        elif self._action_status==0 or self._action_status==1:
+            return self.fail(self._action_msg, -101)
         elif self._action_status==2:
             return self.success(self._action_msg)
         elif self._skill_to_expand:
