@@ -5,13 +5,16 @@ from skiros2_task.ros.task_manager_interface import TaskManagerInterface
 from skiros2_skill.ros.utils import deserialize_skill
 import skiros2_common.tools.logger as log
 
+
 class TaskPlan(SkillDescription):
     """
     """
+
     def createDescription(self):
         #=======Params=========
         self.addParam("Goal", str, ParamTypes.Required)
         #self.addParam("TaskPlan", "", ParamTypes.Required)
+
 
 class task_plan(SkillBase):
     def createDescription(self):
@@ -49,9 +52,9 @@ class task_plan(SkillBase):
     def execute(self):
         if self._action_status is None:
             return self.step("Planning...")
-        elif self._action_status==1:
+        elif self._action_status == 1:
             return self.fail(self._action_msg, -self._action_status)
-        elif self._action_status==2:
+        elif self._action_status == 2:
             return self.success(self._action_msg)
         elif self._skill_to_expand:
             task = deserialize_skill(self._action_msg)
@@ -62,12 +65,15 @@ class task_plan(SkillBase):
         else:
             super(SkillBase, self).execute()
 
+
 class DynamicTree(SkillDescription):
     """
     """
+
     def createDescription(self):
         #=======Params=========
         self.addParam("TaskPlan", str, ParamTypes.Required)
+
 
 class dynamic_tree(SkillBase):
     def createDescription(self):
