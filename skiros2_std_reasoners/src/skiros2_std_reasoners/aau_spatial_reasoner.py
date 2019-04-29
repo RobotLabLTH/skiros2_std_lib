@@ -31,7 +31,7 @@
 from skiros2_common.core.discrete_reasoner import DiscreteReasoner
 import skiros2_common.tools.logger as log
 import tf2_ros as tf
-import tf2_geometry_msgs.tf2_geometry_msgs as tfmsg
+from tf2_geometry_msgs import PoseStamped
 import tf.transformations as tf_conv
 from geometry_msgs.msg import Pose, TransformStamped
 import rospy
@@ -39,17 +39,18 @@ import numpy
 from copy import deepcopy
 from math import acos
 from numpy import clip
+from skiros2_common.tools.time_keeper import TimeKeepers
+from skiros2_common.core.world_element import Element
 
 class AauSpatialReasoner(DiscreteReasoner):
     """
-    @brief Reasoner that keeps care of transformations and spatial relations
+    @brief Reasoner handling transformations and spatial relations
 
     Keeps in self._tf_list a list of transforms to publish
 
     In self._linked_list keeps a list of objects that are linked to a tf already present in the tf system.
 
-    Their pose is regularly updated (when changes)
-
+    Their pose is regularly updated (whenever it changes)
 
     >>> sr = AauSpatialReasoner()
     >>> e = Element()
@@ -60,27 +61,28 @@ class AauSpatialReasoner(DiscreteReasoner):
     >>> sr.setData(e,  [1.0, 1.0 ,1.0], ":Size")
     >>> sr.onAddProperties(e2)
     >>> sr.computeRelations(e, e2)
-    []
+    [':unknownT']
     >>> sr.setData(e2,  [3.0, 2.0 ,-1.0], ":Position")
     >>> sr.setData(e2,  [1.0, 1.0 ,1.0], ":OrientationEuler")
     >>> sr.setData(e2,  [1.0, 2.0 ,3.0], ":Size")
     >>> numpy.array(sr.getData(e, ":OrientationEuler"))
     array([ 1.,  1.,  1.])
     >>> sr.computeRelations(e, e2)
-    [':pX', ':oY', ':dZ']
+    [':pX', ':pY', ':fZ', ':pA']
     >>> sr.setData(e2,  [4.0, 5.0 , -2.0], ":Position")
     >>> sr.computeRelations(e, e2)
-    [':pX', ':pY', ':fZ']
+    [':pX', ':pY', ':miZ', ':pA']
     """
     def __init__(self):
-        self._tlb = None
-        self._tl = None
+        self._tlb = tf.Buffer()
+        self._tl = tf.TransformListener(self._tlb)
+        self._times = TimeKeepers()
 
     def parse(self, element, action):
         """
-        Called by the world model every time an objects is modified
+        @brief Called by the world model every time an objects is modified
 
-        Internally, does 2 things: parse to object and it to the tflist
+        Internally does 2 things: parse the object and in case add it to self._tflist
         """
         if element.id=="skiros:Scene-0" or not element.hasProperty("skiros:DiscreteReasoner", value="AauSpatialReasoner"):
             return True
@@ -209,7 +211,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                 try:
                     element.setData(":PoseStampedMsg", self._tlb.transform(element.getData(":PoseStampedMsg"), parent_frame))
                     log.warn(self.__class__.__name__, "{} transformed from base {} to base {}".format(element, base_frm, parent_frame))
-                except:
+                except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                     log.error(self.__class__.__name__, "{} failed to transform from base {} to base {}".format(element, base_frm, parent_frame))
                     element.setProperty("skiros:BaseFrameId", parent_frame)
                     return
@@ -217,6 +219,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                 log.info("[AauSpatialReasoner] Publishing {} parent: {}".format(element, parent_frame))
                 self._updateChildren(element)
             element.setData(":Orientation", self._quaternion_normalize(element.getData(":Orientation")))
+            self._tb.sendTransform(element.getData(":TransformMsg"))
             self._tf_list[element.id] = element
 
     def run(self):
@@ -276,18 +279,18 @@ class AauSpatialReasoner(DiscreteReasoner):
         if get_code==":Pose" or get_code==":PoseStampedMsg":
             return element.hasData(":Position") and element.hasData(":Orientation")
         elif get_code==":Position":
-            return (element.getProperty("skiros:PositionX").value!=None and
-                    element.getProperty("skiros:PositionY").value!=None and
-                    element.getProperty("skiros:PositionZ").value!=None)
+            return (element.hasProperty("skiros:PositionX", not_none=True) and
+                    element.hasProperty("skiros:PositionY", not_none=True) and
+                    element.hasProperty("skiros:PositionZ", not_none=True) )
         elif get_code==":Orientation":
-            return (element.getProperty("skiros:OrientationX").value!=None and
-                    element.getProperty("skiros:OrientationY").value!=None and
-                    element.getProperty("skiros:OrientationZ").value!=None and
-                    element.getProperty("skiros:OrientationW").value!=None)
+            return (element.hasProperty("skiros:OrientationX", not_none=True) and
+                    element.hasProperty("skiros:OrientationY", not_none=True) and
+                    element.hasProperty("skiros:OrientationZ", not_none=True) and
+                    element.hasProperty("skiros:OrientationW", not_none=True) )
         elif get_code==":Size":
-            return (element.getProperty("skiros:SizeX").value!=None and
-                    element.getProperty("skiros:SizeY").value!=None and
-                    element.getProperty("skiros:SizeZ").value!=None)
+            return (element.hasProperty("skiros:SizeX", not_none=True) and
+                    element.hasProperty("skiros:SizeY", not_none=True) and
+                    element.hasProperty("skiros:SizeZ", not_none=True) )
         else:
             log.error("[AauSpatialReasoner] Code {} not recognized".format(get_code))
             return False
@@ -324,7 +327,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             msg.orientation.w = element.getProperty("skiros:OrientationW").value
             return msg
         elif get_code==":PoseStampedMsg":
-            msg = tfmsg.PoseStamped()
+            msg = PoseStamped()
             msg.header.frame_id = element.getProperty("skiros:BaseFrameId").value
             msg.pose.position.x = element.getProperty("skiros:PositionX").value
             msg.pose.position.y = element.getProperty("skiros:PositionY").value
@@ -435,11 +438,11 @@ class AauSpatialReasoner(DiscreteReasoner):
 
         >>> sr = AauSpatialReasoner()
         >>> sr._getAIRelations(0, 2, 2, 4, 'X')
-        [':mX']
+        [':mX', 0.0]
         >>> sr._getAIRelations(0, 2, -2, 0, 'X')
-        [':miX']
+        [':miX', 0.0]
         >>> sr._getAIRelations(0, 2, 0, 2, 'X')
-        [':eqX']
+        [':eqX', 0.0]
         >>> sr._getAIRelations(0, 2, 3, 6, 'X')
         [':pX', 1]
         >>> sr._getAIRelations(3, 6, 0, 2, 'X')
@@ -463,7 +466,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         >>> sr._getAIRelations(0, 0, 3, 3, 'X')
         [':pX', 3]
         >>> sr._getAIRelations(3, 3, 3, 3, 'X')
-        [':mX']
+        [':mX', 0.0]
         >>> sr._getAIRelations(4, 4, 3, 3, 'X')
         [':piX', 1]
         >>> sr._getAIRelations(0.01, 0.01, 0, 1, 'X')
@@ -531,22 +534,22 @@ class AauSpatialReasoner(DiscreteReasoner):
         #transform pose: object w.r.t. frame of subject
         if sub_frame!=obj_base_frame:
             if obj_base_frame=="":
-                return [':unknownT']
-            if not self._tlb or not self._tl:
-                self._tlb = tf.Buffer()
-                self._tl = tf.TransformListener(self._tlb)
+                return [':unknownT'] if not with_metrics else [(':unknownT', -1.0)]
             try:
                 obj = deepcopy(obj)
                 if sub_frame=="":#If the subject is not being published, I add it manually to the frames buffer
                     sub = deepcopy(sub)
-                    sub_frame = "temp"
+                    sub_frame = "subj_temp_frame"
                     sub.setProperty("skiros:FrameId", sub_frame)
-                    self._tlb.set_transform(self.getData(sub, ":TransformMsg"))
+                    self._tlb.set_transform(self.getData(sub, ":TransformMsg"), "AauSpatialReasoner")
+                if obj.getProperty("skiros:FrameId").value=="":#If the object is not being published, I add it manually to the frames buffer
+                    obj.setProperty("skiros:FrameId", "obj_temp_frame")
+                    self._tlb.set_transform(self.getData(obj, ":TransformMsg"), "AauSpatialReasoner")
                 self._tlb.lookup_transform(obj_base_frame, sub_frame, rospy.Time(0), rospy.Duration(1.0))
                 obj.setData(":PoseStampedMsg", self._tlb.transform(obj.getData(":PoseStampedMsg"), sub_frame))
-            except:
+            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 log.error("[computeRelations]", "Couldn't transform object in frame {} to frame {}.".format(obj_base_frame, sub_frame))
-                return [':unknownT']
+                return [':unknownT'] if not with_metrics else [(':unknownT', -1.0)]
         #Get corners a1,a2,b1,b2
         sp = numpy.array([0, 0, 0])
         ss = numpy.array(self.getData(sub, ":Size"))
@@ -558,7 +561,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         os = numpy.array(self.getData(obj, ":Size"))
         oo = numpy.array(self.getData(obj, ":Orientation"))
         if op[0] is None:
-            return [':unknownT']
+            return [':unknownT'] if not with_metrics else [(':unknownT', -1.0)]
         if os[0] is None:
             os = numpy.array([0, 0, 0])
         b1 = op-os/2
