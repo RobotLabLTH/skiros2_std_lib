@@ -2,8 +2,8 @@
 Changelog for package skiros2_std_reasoners
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2019-04-30)
+------------------
 * Init tf buffer from __init\_\_
 * Spatial reasoner can compare poses that are not published on tf
 * Removed debug msg

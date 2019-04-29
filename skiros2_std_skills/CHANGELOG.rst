@@ -2,8 +2,8 @@
 Changelog for package skiros2_std_skills
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2019-04-30)
+------------------
 * Bug-fix
 * Minor fix in task planner client
 * Fix in spatial reasoner for using transform on ROS melodic
