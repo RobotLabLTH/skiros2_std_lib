@@ -74,8 +74,8 @@ class AauSpatialReasoner(DiscreteReasoner):
     [':pX', ':pY', ':miZ', ':pA']
     """
     def __init__(self):
-        self._tlb = None
-        self._tl = None
+        self._tlb = tf.Buffer()
+        self._tl = tf.TransformListener(self._tlb)
         self._times = TimeKeepers()
 
     def parse(self, element, action):
@@ -535,10 +535,6 @@ class AauSpatialReasoner(DiscreteReasoner):
         if sub_frame!=obj_base_frame:
             if obj_base_frame=="":
                 return [':unknownT'] if not with_metrics else [(':unknownT', -1.0)]
-            if not self._tlb or not self._tl:
-                self._tlb = tf.Buffer()
-                self._tl = tf.TransformListener(self._tlb)
-                rospy.sleep(0.1)
             try:
                 obj = deepcopy(obj)
                 if sub_frame=="":#If the subject is not being published, I add it manually to the frames buffer
