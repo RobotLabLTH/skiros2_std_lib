@@ -188,6 +188,27 @@ class AauSpatialReasoner(DiscreteReasoner):
                 log.debug("[{}]".format(self.__class__.__name__), " {} updates child {}".format(e.id, r['dst']))
                 self._e_to_update.append(self._wmi.get_element(r['dst']))
 
+    def _updatePositionFromSpeed(self):
+        """
+        @brief Add an element to the list of published tfs
+        """
+        now = rospy.Time.now()
+        dt = (now - self._last_time).to_sec()
+        self._last_time = now
+        for element in self._tf_list.values():
+            update=False
+            if element.hasProperty("skiros:VelocityX"):
+                update=True
+                element.getProperty("skiros:PositionX").value += element.getProperty("skiros:VelocityX").value * dt
+            if element.hasProperty("skiros:VelocityY"):
+                update=True
+                element.getProperty("skiros:PositionY").value += element.getProperty("skiros:VelocityY").value * dt
+            if element.hasProperty("skiros:VelocityZ"):
+                update=True
+                element.getProperty("skiros:PositionZ").value += element.getProperty("skiros:VelocityZ").value * dt
+            if update:
+                self._wmi.update_properties(element, self.__class__.__name__, self)
+
     def _updateTfList(self, element):
         """
         @brief Add an element to the list of published tfs
@@ -228,9 +249,11 @@ class AauSpatialReasoner(DiscreteReasoner):
         self._tlb = tf.Buffer()
         self._tb = tf.TransformBroadcaster()
         self._tl = tf.TransformListener(self._tlb)
+        self._last_time = rospy.Time.now()
         self._reset()
         rate = rospy.Rate(50)
         while not rospy.is_shutdown() and not self.stopRequested:
+            self._updatePositionFromSpeed()
             self._updateLinkedObjects()
             self._publishTfList()
             rate.sleep()
