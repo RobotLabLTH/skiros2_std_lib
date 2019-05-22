@@ -2,6 +2,13 @@
 Changelog for package skiros2_std_reasoners
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Fixed comments in spatial reasoner
+* Spatial reasoner updates objects position based on velocity estimation
+* Changed transform message from warn to info
+* Contributors: RvmiLab, francesco
+
 1.0.0 (2019-04-30)
 ------------------
 * Init tf buffer from __init\_\_
