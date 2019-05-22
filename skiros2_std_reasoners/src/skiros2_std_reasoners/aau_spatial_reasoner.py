@@ -1,33 +1,3 @@
-#################################################################################
-# Software License Agreement (BSD License)
-#
-# Copyright (c) 2016, Francesco Rovida
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# * Redistributions of source code must retain the above copyright
-#   notice, this list of conditions and the following disclaimer.
-# * Redistributions in binary form must reproduce the above copyright
-#   notice, this list of conditions and the following disclaimer in the
-#   documentation and/or other materials provided with the distribution.
-# * Neither the name of the copyright holder nor the
-#   names of its contributors may be used to endorse or promote products
-#   derived from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
-# ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#################################################################################
-
 from skiros2_common.core.discrete_reasoner import DiscreteReasoner
 import skiros2_common.tools.logger as log
 import tf2_ros as tf
@@ -39,7 +9,6 @@ import numpy
 from copy import deepcopy
 from math import acos
 from numpy import clip
-from skiros2_common.tools.time_keeper import TimeKeepers
 from skiros2_common.core.world_element import Element
 
 class AauSpatialReasoner(DiscreteReasoner):
@@ -76,7 +45,6 @@ class AauSpatialReasoner(DiscreteReasoner):
     def __init__(self):
         self._tlb = tf.Buffer()
         self._tl = tf.TransformListener(self._tlb)
-        self._times = TimeKeepers()
 
     def parse(self, element, action):
         """
@@ -188,9 +156,30 @@ class AauSpatialReasoner(DiscreteReasoner):
                 log.debug("[{}]".format(self.__class__.__name__), " {} updates child {}".format(e.id, r['dst']))
                 self._e_to_update.append(self._wmi.get_element(r['dst']))
 
+    def _updatePositionFromSpeed(self):
+        """
+        @brief Updates objects position based on velocity
+        """
+        now = rospy.Time.now()
+        dt = (now - self._last_time).to_sec()
+        self._last_time = now
+        for element in self._tf_list.values():
+            update=False
+            if element.hasProperty("skiros:VelocityX"):
+                update=True
+                element.getProperty("skiros:PositionX").value += element.getProperty("skiros:VelocityX").value * dt
+            if element.hasProperty("skiros:VelocityY"):
+                update=True
+                element.getProperty("skiros:PositionY").value += element.getProperty("skiros:VelocityY").value * dt
+            if element.hasProperty("skiros:VelocityZ"):
+                update=True
+                element.getProperty("skiros:PositionZ").value += element.getProperty("skiros:VelocityZ").value * dt
+            if update:
+                self._wmi.update_properties(element, self.__class__.__name__, self)
+
     def _updateTfList(self, element):
         """
-        @brief Add an element to the list of published tfs
+        @brief Insert an element in the list of published tfs
         """
         element.setProperty("skiros:FrameId", element.id)
         #element.setProperty("skiros:FrameId", "{}-{}".format(element.label[element.label.find(':')+1:], element.getIdNumber()) if element.label!="" else element.id[element.id.find(':')+1:])
@@ -210,7 +199,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             elif base_frm != parent_frame:
                 try:
                     element.setData(":PoseStampedMsg", self._tlb.transform(element.getData(":PoseStampedMsg"), parent_frame))
-                    log.warn(self.__class__.__name__, "{} transformed from base {} to base {}".format(element, base_frm, parent_frame))
+                    log.info(self.__class__.__name__, "{} transformed from base {} to base {}".format(element, base_frm, parent_frame))
                 except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                     log.error(self.__class__.__name__, "{} failed to transform from base {} to base {}".format(element, base_frm, parent_frame))
                     element.setProperty("skiros:BaseFrameId", parent_frame)
@@ -223,20 +212,24 @@ class AauSpatialReasoner(DiscreteReasoner):
             self._tf_list[element.id] = element
 
     def run(self):
-        """ @brief Run the reasoner daemon on the world model """
+        """
+        @brief Run the reasoner daemon on the world model
+        """
         self._e_to_update = list()
-        self._tlb = tf.Buffer()
         self._tb = tf.TransformBroadcaster()
-        self._tl = tf.TransformListener(self._tlb)
+        self._last_time = rospy.Time.now()
         self._reset()
         rate = rospy.Rate(50)
         while not rospy.is_shutdown() and not self.stopRequested:
+            self._updatePositionFromSpeed()
             self._updateLinkedObjects()
             self._publishTfList()
             rate.sleep()
 
     def onAddProperties(self, element):
-        """ Add default reasoner properties to the element """
+        """
+        @brief Add default reasoner properties to the element
+        """
         if not element.hasProperty("skiros:FrameId"):
             element.setProperty("skiros:FrameId", "")
         if not element.hasProperty("skiros:BaseFrameId"):
@@ -265,17 +258,16 @@ class AauSpatialReasoner(DiscreteReasoner):
             element.setProperty("skiros:SizeZ", float)
 
     def onRemoveProperties(self, element):
-        """ Remove default reasoner properties to the element """
+        """
+        @brief Remove default reasoner properties to the element
+        """
         for k in self.getAssociatedData():
             element.removeProperty(k)
 
-    def getAssociatedData(self):
-        return ['skiros:PositionX', 'skiros:PositionY', 'skiros:PositionZ',
-                'skiros:OrientationX', 'skiros:OrientationY', 'skiros:OrientationZ', 'skiros:OrientationW',
-                'skiros:SizeX', 'skiros:SizeY', 'skiros:SizeZ', 'skiros:BaseFrameId', 'skiros:FrameId', 'skiros:PublishTf']
-
     def hasData(self, element, get_code):
-        """ Return true if the data is available in the element """
+        """
+        @brief Return true if the data is available in the element
+        """
         if get_code==":Pose" or get_code==":PoseStampedMsg":
             return element.hasData(":Position") and element.hasData(":Orientation")
         elif get_code==":Position":
@@ -297,9 +289,7 @@ class AauSpatialReasoner(DiscreteReasoner):
 
     def getData(self, element, get_code):
         """
-        Return data from the element in the format indicated in get_code
-
-
+        @brief Return data from the element in the format indicated in get_code
         """
         if get_code==":Pose":
             return (element.getData(":Position"), element.getData(":Orientation"))
@@ -361,7 +351,7 @@ class AauSpatialReasoner(DiscreteReasoner):
 
     def setData(self, element, data, set_code):
         """
-        Convert user data to reasoner data and store it into given element
+        @brief Convert user data to reasoner data and store it into given element
         """
         if set_code==":Pose":
             return (element.setData(":Position", data[0]), element.setData(":Orientation", data[1]))
@@ -414,6 +404,11 @@ class AauSpatialReasoner(DiscreteReasoner):
             log.error("[AauSpatialReasoner] Code {} not recognized".format(set_code))
             return None
 
+    def getAssociatedData(self):
+        return ['skiros:PositionX', 'skiros:PositionY', 'skiros:PositionZ',
+                'skiros:OrientationX', 'skiros:OrientationY', 'skiros:OrientationZ', 'skiros:OrientationW',
+                'skiros:SizeX', 'skiros:SizeY', 'skiros:SizeZ', 'skiros:BaseFrameId', 'skiros:FrameId', 'skiros:PublishTf']
+
     def getAssociatedRelations(self):
         return [':pX', ':piX', ':mX', ':miX', ':oX', ':oiX', ':sX', ':siX', ':dX', ':diX', ':fX', ':fiX', ':eqX',
                 ':pY', ':piY', ':mY', ':miY', ':oY', ':oiY', ':sY', ':siY', ':dY', ':diY', ':fY', ':fiY', ':eqY',
@@ -423,10 +418,9 @@ class AauSpatialReasoner(DiscreteReasoner):
     def getAssociatedProperties(self):
         return [':Size', ':Pose', ':Position', ':Orientation', ':OrientationEuler', ':PoseMsg', ':PoseStampedMsg', ':TransformMsg']
 
-
     def _isclose(self, a, b, rel_tol=1e-06, abs_tol=0.001):
         """
-        Implementation of equality check between floats
+        @brief Implementation of equality check between floats
 
         Absolute tolerance set to 1 (millimiters)
         """
@@ -528,6 +522,11 @@ class AauSpatialReasoner(DiscreteReasoner):
             return (":pA", o)
 
     def computeRelations(self, sub, obj, with_metrics=False):
+        """
+        @brief Compute semantic relations from geometrical data
+        @with_metrics If true, return tuples (relation, float) instead of strings
+        @return List of strings, either valid semantic relations or ':unknownT'
+        """
         to_ret = []
         sub_frame = sub.getProperty("skiros:FrameId").value
         obj_base_frame = obj.getProperty("skiros:BaseFrameId").value

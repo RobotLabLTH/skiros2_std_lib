@@ -27,8 +27,7 @@ class PrimitiveActionClient(PrimitiveBase):
         if self.build_client_onstart:
             self.client = self.buildClient()
         if not self.client.wait_for_server(rospy.Duration(0.5)):
-            log.error("[{}]".format(self._label), "Action server {} is not available.".format(self.client.action_client.ns))
-            return False
+            return self.startError("Action server {} is not available.".format(self.client.action_client.ns), -101)
         self.client.send_goal(self.buildGoal(), done_cb= self._doneCb, feedback_cb = self._feedbackCb)
         return True
 
@@ -73,7 +72,7 @@ class PrimitiveActionClient(PrimitiveBase):
         """
         @brief Optional to override. Routine called just after skill execution end
         """
-        pass
+        return True
 
     def buildClient(self):
         """

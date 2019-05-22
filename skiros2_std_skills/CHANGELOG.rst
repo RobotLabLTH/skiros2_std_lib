@@ -2,6 +2,11 @@
 Changelog for package skiros2_std_skills
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Minor fix in action client primitive 2
+* Minor fix in action client primitive
+
 1.0.0 (2019-04-30)
 ------------------
 * Bug-fix
