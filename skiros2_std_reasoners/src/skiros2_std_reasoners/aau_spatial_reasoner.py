@@ -100,7 +100,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                     (tf.transform.rotation.x, tf.transform.rotation.y, tf.transform.rotation.z, tf.transform.rotation.w))
         except:
             missing = base_frm+target_frm
-            if not self._missing_tf.has_key(missing):
+            if missing not in self._missing_tf:
                 log.warn(self.__class__.__name__, "No tf found between {} {}. Linked tf will not be updated.".format(base_frm, target_frm))
                 self._missing_tf[missing] = None
             return (None, None)
