@@ -45,6 +45,7 @@ class AauSpatialReasoner(DiscreteReasoner):
     def __init__(self):
         self._tlb = tf.Buffer()
         self._tl = tf.TransformListener(self._tlb)
+        self._missing_tf = {}
 
     def parse(self, element, action):
         """
@@ -93,9 +94,9 @@ class AauSpatialReasoner(DiscreteReasoner):
         else:
             return parent.getProperty("skiros:FrameId").value
 
-    def _getTransform(self, base_frm, target_frm):
+    def _getTransform(self, base_frm, target_frm, duration=rospy.Duration(0.0)):
         try:
-            tf = self._tlb.lookup_transform(base_frm, target_frm, rospy.Time(0), rospy.Duration(0.0))
+            tf = self._tlb.lookup_transform(base_frm, target_frm, rospy.Time(0), duration)
             return ((tf.transform.translation.x, tf.transform.translation.y, tf.transform.translation.z),
                     (tf.transform.rotation.x, tf.transform.rotation.y, tf.transform.rotation.z, tf.transform.rotation.w))
         except:
