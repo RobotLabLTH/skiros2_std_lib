@@ -136,7 +136,11 @@ class AauSpatialReasoner(DiscreteReasoner):
 
     def _publishTfList(self):
         for e in list(self._tf_list.values()):
-            self._tb.sendTransform(e.getData(":TransformMsg"))
+            tf = e.getData(":TransformMsg")
+            self._tb.sendTransform(tf)
+            if e.hasProperty("skiros:PushToFrameId") and not e.hasProperty("skiros:PushToFrameId", ""):
+                tf.child_frame_id = e.getProperty("skiros:PushToFrameId").value
+                self._tb.sendTransform(tf)
 
     def _vector_distance(self, v1, v2):
         diff = numpy.array(v1)-numpy.array(v2)
