@@ -111,7 +111,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             self.k = k
             e = self._wmi.get_element(k)
             base_frm = e.getProperty("skiros:BaseFrameId").value
-            if not e.hasProperty("skiros:LinkedToFrameId"):
+            if not e.hasProperty("skiros:LinkedToFrameId", not_none=True) or e.hasProperty("skiros:LinkedToFrameId", ""):
                 self._linked_list.pop(k)
                 continue
             linked_frm = e.getProperty("skiros:LinkedToFrameId").value
@@ -138,7 +138,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         for e in list(self._tf_list.values()):
             tf = e.getData(":TransformMsg")
             self._tb.sendTransform(tf)
-            if e.hasProperty("skiros:PushToFrameId") and not e.hasProperty("skiros:PushToFrameId", ""):
+            if e.hasProperty("skiros:PushToFrameId", not_none=True) and not e.hasProperty("skiros:PushToFrameId", ""):
                 tf.child_frame_id = e.getProperty("skiros:PushToFrameId").value
                 self._tb.sendTransform(tf)
 
