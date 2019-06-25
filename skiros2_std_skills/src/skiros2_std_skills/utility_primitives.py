@@ -107,13 +107,13 @@ class WmMoveObject(SkillDescription):
     def createDescription(self):
         #=======Params=========
         self.addParam("StartLocation", Element("sumo:Object"), ParamTypes.Required)
-        self.addParam("TargetLocation", Element("sumo:Object"), ParamTypes.Required)
+        self.addParam("TargetLocation", Element("sumo:Object"), ParamTypes.Optional)
         self.addParam("Object", Element("sumo:Object"), ParamTypes.Required)
         self.addParam("Relation", "skiros:contain", ParamTypes.Required)
         #=======PreConditions=========
-        self.addPreCondition(self.getRelationCond("StartContainObj", "skiros:spatiallyRelated", "StartLocation", "Object", True))
+        #self.addPreCondition(self.getRelationCond("StartContainObj", "skiros:spatiallyRelated", "StartLocation", "Object", True))
         #=======PostConditions=========
-        self.addPostCondition(self.getRelationCond("TargetContainObj", "skiros:spatiallyRelated", "TargetLocation", "Object", True))
+        #self.addPostCondition(self.getRelationCond("TargetContainObj", "skiros:spatiallyRelated", "TargetLocation", "Object", True))
 
 class wm_move_object(PrimitiveBase):
     """
@@ -126,7 +126,7 @@ class wm_move_object(PrimitiveBase):
 
     def execute(self):
         start = self.params["StartLocation"].value
-        target = self.params["TargetLocation"].value
+        target = self.params["TargetLocation"].value if self.params["TargetLocation"].value.id else start
         objectt = self.params["Object"].value
         rel = objectt.getRelation(pred=self._wmi.get_sub_properties("skiros:spatiallyRelated"), obj="-1")
 
