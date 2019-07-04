@@ -118,29 +118,30 @@ class AauSpatialReasoner(DiscreteReasoner):
             new_p, new_o = self._getTransform(base_frm, linked_frm)
             old_p, old_o = e.getData(":Pose")
             if new_p and new_o:
-                if old_p[0]==None or old_o[0]==None:
-                    e = deepcopy(self._wmi.get_element(k))
-                    e.setData(":Pose", (new_p, new_o))
-                    self._wmi.update_properties(e, self.__class__.__name__, self)
-                    continue
-                treshold = 0.001
                 #print "{} {}".format(self._vector_distance(new_p, old_p), self._vector_distance(new_o, old_o))
                 #TODO: vector distance for quaternions doesn't work, need angleShortestPath func
-                if self._vector_distance(new_p, old_p)>treshold:
+                treshold = 0.001
+                if old_p[0]==None or old_o[0]==None or self._vector_distance(new_p, old_p)>treshold:
                     e = deepcopy(self._wmi.get_element(k))
                     e.setData(":Pose", (new_p, new_o))
+                    e.setProperty("skiros:TfTimeStamp", rospy.Time.now().to_sec())
                     self._wmi.update_properties(e, self.__class__.__name__, self)
         for e in self._e_to_update:
             self._wmi.update_element(e, self.__class__.__name__)
         self._e_to_update = list()
 
+
+    def _publishTransform(self, e):
+        tf = e.getData(":TransformMsg")
+        tf.header.stamp = rospy.Time.now()
+        self._tb.sendTransform(tf)
+        if e.hasProperty("skiros:PushToFrameId", not_none=True) and not e.hasProperty("skiros:PushToFrameId", ""):
+            tf.child_frame_id = e.getProperty("skiros:PushToFrameId").value
+            self._tb.sendTransform(tf)
+
     def _publishTfList(self):
         for e in list(self._tf_list.values()):
-            tf = e.getData(":TransformMsg")
-            self._tb.sendTransform(tf)
-            if e.hasProperty("skiros:PushToFrameId", not_none=True) and not e.hasProperty("skiros:PushToFrameId", ""):
-                tf.child_frame_id = e.getProperty("skiros:PushToFrameId").value
-                self._tb.sendTransform(tf)
+            self._publishTransform(e)
 
     def _vector_distance(self, v1, v2):
         diff = numpy.array(v1)-numpy.array(v2)
@@ -203,17 +204,20 @@ class AauSpatialReasoner(DiscreteReasoner):
                 element.setProperty("skiros:BaseFrameId", parent_frame)
             elif base_frm != parent_frame:
                 try:
-                    element.setData(":PoseStampedMsg", self._tlb.transform(element.getData(":PoseStampedMsg"), parent_frame))
+                    pose = element.getData(":PoseStampedMsg")
+                    # self._tlb.lookup_transform(parent_frame, pose.header.frame_id, pose.header.stamp, rospy.Duration(0.1))
+                    element.setData(":PoseStampedMsg", self._tlb.transform(pose, parent_frame))
                     log.info(self.__class__.__name__, "{} transformed from base {} to base {}".format(element, base_frm, parent_frame))
-                except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                    log.error(self.__class__.__name__, "{} failed to transform from base {} to base {}".format(element, base_frm, parent_frame))
+                except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+                    log.error(self.__class__.__name__, "{} failed to transform from base {} to base {}. Error: {}".format(element, base_frm, parent_frame, e))
                     element.setProperty("skiros:BaseFrameId", parent_frame)
                     return
             if not self._tf_list.has_key(element.id):
                 log.info("[AauSpatialReasoner] Publishing {} parent: {}".format(element, parent_frame))
                 self._updateChildren(element)
             element.setData(":Orientation", self._quaternion_normalize(element.getData(":Orientation")))
-            self._tb.sendTransform(element.getData(":TransformMsg"))
+            # print(element.label)
+            self._publishTransform(element)
             self._tf_list[element.id] = element
 
     def run(self):
@@ -241,6 +245,8 @@ class AauSpatialReasoner(DiscreteReasoner):
             element.setProperty("skiros:BaseFrameId", "")
         if not element.hasProperty("skiros:PublishTf"):
             element.setProperty("skiros:PublishTf", True)
+        if not element.hasProperty("skiros:TfTimeStamp"):
+            element.setProperty("skiros:TfTimeStamp", float)
         if not element.hasProperty("skiros:PositionX"):
             element.setProperty("skiros:PositionX", float)
         if not element.hasProperty("skiros:PositionY"):
@@ -301,7 +307,10 @@ class AauSpatialReasoner(DiscreteReasoner):
         elif get_code==":TransformMsg":
             msg = TransformStamped()
             msg.header.frame_id = element.getProperty("skiros:BaseFrameId").value
-            msg.header.stamp = rospy.Time.now()
+            if not element.hasProperty("skiros:TfTimeStamp", not_none=True):
+                msg.header.stamp = rospy.Time(0)
+            else:
+                msg.header.stamp = rospy.Time.from_sec(element.getProperty("skiros:TfTimeStamp").value)
             msg.child_frame_id = element.getProperty("skiros:FrameId").value
             msg.transform.translation.x = element.getProperty("skiros:PositionX").value
             msg.transform.translation.y = element.getProperty("skiros:PositionY").value
@@ -324,6 +333,10 @@ class AauSpatialReasoner(DiscreteReasoner):
         elif get_code==":PoseStampedMsg":
             msg = PoseStamped()
             msg.header.frame_id = element.getProperty("skiros:BaseFrameId").value
+            if not element.hasProperty("skiros:TfTimeStamp", not_none=True):
+                msg.header.stamp = rospy.Time(0)
+            else:
+                msg.header.stamp = rospy.Time.from_sec(element.getProperty("skiros:TfTimeStamp").value)
             msg.pose.position.x = element.getProperty("skiros:PositionX").value
             msg.pose.position.y = element.getProperty("skiros:PositionY").value
             msg.pose.position.z = element.getProperty("skiros:PositionZ").value
@@ -362,6 +375,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             return (element.setData(":Position", data[0]), element.setData(":Orientation", data[1]))
         elif set_code==":TransformMsg":
             element.getProperty("skiros:BaseFrameId").value = str(data.header.frame_id)
+            element.getProperty("skiros:TfTimeStamp").value = data.header.stamp.to_sec()
             element.getProperty("skiros:PositionX").value = data.transform.translation.x
             element.getProperty("skiros:PositionY").value = data.transform.translation.y
             element.getProperty("skiros:PositionZ").value = data.transform.translation.z
@@ -379,6 +393,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             element.getProperty("skiros:OrientationW").value = data.orientation.w
         elif set_code==":PoseStampedMsg":
             element.getProperty("skiros:BaseFrameId").value = str(data.header.frame_id)
+            element.getProperty("skiros:TfTimeStamp").value = data.header.stamp.to_sec()
             element.getProperty("skiros:PositionX").value = data.pose.position.x
             element.getProperty("skiros:PositionY").value = data.pose.position.y
             element.getProperty("skiros:PositionZ").value = data.pose.position.z
@@ -412,7 +427,7 @@ class AauSpatialReasoner(DiscreteReasoner):
     def getAssociatedData(self):
         return ['skiros:PositionX', 'skiros:PositionY', 'skiros:PositionZ',
                 'skiros:OrientationX', 'skiros:OrientationY', 'skiros:OrientationZ', 'skiros:OrientationW',
-                'skiros:SizeX', 'skiros:SizeY', 'skiros:SizeZ', 'skiros:BaseFrameId', 'skiros:FrameId', 'skiros:PublishTf']
+                'skiros:SizeX', 'skiros:SizeY', 'skiros:SizeZ', 'skiros:BaseFrameId', 'skiros:FrameId', 'skiros:TfTimeStamp', 'skiros:PublishTf']
 
     def getAssociatedRelations(self):
         return [':pX', ':piX', ':mX', ':miX', ':oX', ':oiX', ':sX', ':siX', ':dX', ':diX', ':fX', ':fiX', ':eqX',
