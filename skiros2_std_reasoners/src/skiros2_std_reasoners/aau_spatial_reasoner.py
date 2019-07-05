@@ -57,14 +57,14 @@ class AauSpatialReasoner(DiscreteReasoner):
             return True
         if action=="add" or action=="update":
             c_rel = element.getRelation(pred=self._spatial_rels, obj="-1")
-            if not c_rel:
+            if not c_rel and element.hasProperty("skiros:PublishTf", True):
                 log.warn(self.__class__.__name__, "Adding relation to {}".format(element))
                 element.addRelation("skiros:Scene-0", "skiros:contain", "-1")
             self._updateTfList(element)
         elif action=="remove":
-            if self._linked_list.has_key(element.id):
+            if element.id in self._linked_list:
                 del self._linked_list[element.id]
-            if self._tf_list.has_key(element.id):
+            if element.id in self._tf_list:
                 del self._tf_list[element.id]
         return True
 
