@@ -211,6 +211,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                 except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
                     log.error(self.__class__.__name__, "{} failed to transform from base {} to base {}. Error: {}".format(element, base_frm, parent_frame, e))
                     element.setProperty("skiros:BaseFrameId", parent_frame)
+                    element.setProperty("skiros:PublishTf", False)
                     return
             if not self._tf_list.has_key(element.id):
                 log.info("[AauSpatialReasoner] Publishing {} parent: {}".format(element, parent_frame))
