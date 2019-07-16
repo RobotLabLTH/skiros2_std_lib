@@ -45,7 +45,6 @@ class AauSpatialReasoner(DiscreteReasoner):
     def __init__(self):
         self._tlb = tf.Buffer()
         self._tl = tf.TransformListener(self._tlb)
-        self._missing_tf = {}
 
     def parse(self, element, action):
         """
@@ -71,7 +70,6 @@ class AauSpatialReasoner(DiscreteReasoner):
     def _reset(self):
         self._tf_list = {}
         self._linked_list = {}
-        self._missing_tf = {}
         root = self._wmi.get_element("skiros:Scene-0")
         self._spatial_rels = self._wmi.get_sub_properties("skiros:spatiallyRelated")
         if root.hasProperty("skiros:FrameId"):
@@ -99,11 +97,8 @@ class AauSpatialReasoner(DiscreteReasoner):
             tf = self._tlb.lookup_transform(base_frm, target_frm, rospy.Time(0), duration)
             return ((tf.transform.translation.x, tf.transform.translation.y, tf.transform.translation.z),
                     (tf.transform.rotation.x, tf.transform.rotation.y, tf.transform.rotation.z, tf.transform.rotation.w))
-        except:
-            missing = base_frm+target_frm
-            if missing not in self._missing_tf:
-                log.warn(self.__class__.__name__, "No tf found between {} {}. Linked tf will not be updated.".format(base_frm, target_frm))
-                self._missing_tf[missing] = None
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+            rospy.logwarn_throttle(1, "[{}] No tf found between {} {}. Error: {} ".format(self.__class__.__name__, base_frm, target_frm, e))
             return (None, None)
 
     def _updateLinkedObjects(self):
