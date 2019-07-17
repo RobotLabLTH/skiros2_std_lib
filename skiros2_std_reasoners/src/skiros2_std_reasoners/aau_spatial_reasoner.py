@@ -94,9 +94,9 @@ class AauSpatialReasoner(DiscreteReasoner):
 
     def _getTransform(self, base_frm, target_frm, duration=rospy.Duration(0.0)):
         try:
-            tf = self._tlb.lookup_transform(base_frm, target_frm, rospy.Time(0), duration)
-            return ((tf.transform.translation.x, tf.transform.translation.y, tf.transform.translation.z),
-                    (tf.transform.rotation.x, tf.transform.rotation.y, tf.transform.rotation.z, tf.transform.rotation.w))
+            t = self._tlb.lookup_transform(base_frm, target_frm, rospy.Time(0), duration)
+            return ((t.transform.translation.x, t.transform.translation.y, t.transform.translation.z),
+                    (t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z, t.transform.rotation.w))
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
             rospy.logwarn_throttle(1, "[{}] No tf found between {} {}. Error: {} ".format(self.__class__.__name__, base_frm, target_frm, e))
             return (None, None)
@@ -224,7 +224,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         self._tb = tf.TransformBroadcaster()
         self._last_time = rospy.Time.now()
         self._reset()
-        rate = rospy.Rate(50)
+        rate = rospy.Rate(25)
         while not rospy.is_shutdown() and not self.stopRequested:
             self._updatePositionFromSpeed()
             self._updateLinkedObjects()
