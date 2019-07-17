@@ -116,11 +116,11 @@ class AauSpatialReasoner(DiscreteReasoner):
                 #print "{} {}".format(self._vector_distance(new_p, old_p), self._vector_distance(new_o, old_o))
                 #TODO: vector distance for quaternions doesn't work, need angleShortestPath func
                 treshold = 0.001
-                if old_p[0]==None or old_o[0]==None or self._vector_distance(new_p, old_p)>treshold:
-                    e = deepcopy(self._wmi.get_element(k))
-                    e.setData(":Pose", (new_p, new_o))
-                    e.setProperty("skiros:TfTimeStamp", rospy.Time.now().to_sec())
-                    self._wmi.update_properties(e, self.__class__.__name__, self)
+                # if old_p[0]==None or old_o[0]==None or self._vector_distance(new_p, old_p)>treshold:
+                e = deepcopy(self._wmi.get_element(k))
+                e.setData(":Pose", (new_p, new_o))
+                e.setProperty("skiros:TfTimeStamp", rospy.Time.now().to_sec())
+                self._wmi.update_properties(e, self.__class__.__name__, self)
         for e in self._e_to_update:
             self._wmi.update_element(e, self.__class__.__name__)
         self._e_to_update = list()
