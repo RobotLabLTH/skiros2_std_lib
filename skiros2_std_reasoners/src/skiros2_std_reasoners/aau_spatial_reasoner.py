@@ -55,21 +55,20 @@ class AauSpatialReasoner(DiscreteReasoner):
         if element.id=="skiros:Scene-0" or not element.hasProperty("skiros:DiscreteReasoner", value="AauSpatialReasoner"):
             return True
         if action=="add" or action=="update":
-            c_rel = element.getRelation(pred=self._spatial_rels, obj="-1")
-            if not c_rel and element.hasProperty("skiros:PublishTf", True):
-                log.warn(self.__class__.__name__, "Adding relation to {}".format(element))
-                element.addRelation("skiros:Scene-0", "skiros:contain", "-1")
-            self._updateTfList(element)
+            self._format_element(element)
         elif action=="remove":
             if element.id in self._linked_list:
                 del self._linked_list[element.id]
             if element.id in self._tf_list:
                 del self._tf_list[element.id]
+            if element.id in self._to_rebase_list:
+                del self._to_rebase_list[element.id]
         return True
 
     def _reset(self):
         self._tf_list = {}
         self._linked_list = {}
+        self._to_rebase_list = {}
         root = self._wmi.get_element("skiros:Scene-0")
         self._spatial_rels = self._wmi.get_sub_properties("skiros:spatiallyRelated")
         if root.hasProperty("skiros:FrameId"):
@@ -87,10 +86,10 @@ class AauSpatialReasoner(DiscreteReasoner):
         if not c_rel:
             raise Exception("Element {} has not parent. Debug: {}".format(e.printState(), e.printState(True)))
         parent = self._wmi.get_element(c_rel['src'])
-        if (not parent.hasData(":Pose") or not parent.hasProperty("skiros:PublishTf", value=True)) and (not parent.hasProperty("skiros:LinkedToFrameId") or parent.hasProperty("skiros:LinkedToFrameId", "")):
-            return self._getParentFrame(parent)
-        else:
+        if parent.id in self._tf_list or parent.id in self._linked_list or parent.id=="skiros:Scene-0":
             return parent.getProperty("skiros:FrameId").value
+        else:
+            return self._getParentFrame(parent)
 
     def _getTransform(self, base_frm, target_frm, duration=rospy.Duration(0.0)):
         try:
@@ -101,7 +100,19 @@ class AauSpatialReasoner(DiscreteReasoner):
             rospy.logwarn_throttle(1, "[{}] No tf found between {} {}. Error: {} ".format(self.__class__.__name__, base_frm, target_frm, e))
             return (None, None)
 
-    def _updateLinkedObjects(self):
+    def _transform(self, element, target_frm, duration=rospy.Duration(0.0)):
+        try:
+            pose = element.getData(":PoseStampedMsg")
+            # self._tlb.lookup_transform(parent_frame, pose.header.frame_id, pose.header.stamp, rospy.Duration(0.1))
+            element.setData(":PoseStampedMsg", self._tlb.transform(pose, target_frm))
+            element.setProperty("skiros:TfTimeStamp", None)
+            log.info(self.__class__.__name__, "{} transformed from base {} to base {}".format(element, pose.header.frame_id, target_frm))
+            return True
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+            rospy.logwarn_throttle(1, "[{}] {} failed to transform from base {} to base {}. Error: {}".format(self.__class__.__name__, element, pose.header.frame_id, target_frm, e))
+            return False
+
+    def _update_linked_objects(self):
         for k in list(self._linked_list.keys()):
             self.k = k
             e = self._wmi.get_element(k)
@@ -119,7 +130,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                 # if old_p[0]==None or old_o[0]==None or self._vector_distance(new_p, old_p)>treshold:
                 e = deepcopy(self._wmi.get_element(k))
                 e.setData(":Pose", (new_p, new_o))
-                e.setProperty("skiros:TfTimeStamp", rospy.Time.now().to_sec())
+                #e.setProperty("skiros:TfTimeStamp", rospy.Time.now().to_sec())
                 self._wmi.update_properties(e, self.__class__.__name__, self)
         for e in self._e_to_update:
             self._wmi.update_element(e, self.__class__.__name__)
@@ -134,7 +145,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             tf.child_frame_id = e.getProperty("skiros:PushToFrameId").value
             self._tb.sendTransform(tf)
 
-    def _publishTfList(self):
+    def _publish_tf_list(self):
         for e in list(self._tf_list.values()):
             self._publishTransform(e)
 
@@ -150,14 +161,17 @@ class AauSpatialReasoner(DiscreteReasoner):
            return q
         return q/norm
 
-    def _updateChildren(self, e):
+    def _trigger_children_update(self, e):
+        """
+        @brief Children of e get scheduled for a check of the parent frame
+        """
         c_rel = e.getRelations(pred=self._spatial_rels, subj="-1")
         for r in c_rel:
-            if self._tf_list.has_key(r['dst']):
+            if r['dst'] in self._tf_list:
                 log.debug("[{}]".format(self.__class__.__name__), " {} updates child {}".format(e.id, r['dst']))
                 self._e_to_update.append(self._wmi.get_element(r['dst']))
 
-    def _updatePositionFromSpeed(self):
+    def _update_position_from_speed(self):
         """
         @brief Updates objects position based on velocity
         """
@@ -178,10 +192,50 @@ class AauSpatialReasoner(DiscreteReasoner):
             if update:
                 self._wmi.update_properties(element, self.__class__.__name__, self)
 
-    def _updateTfList(self, element):
+    def _process_to_rebase(self):
         """
-        @brief Insert an element in the list of published tfs
+        @brief Process elements requiring a rebase
         """
+        for element in self._to_rebase_list.values():
+            parent_frame = self._getParentFrame(element)
+            if self._transform(element, parent_frame):
+                self._register(element, parent_frame)
+                self._wmi.update_properties(element, self.__class__.__name__, self)
+
+
+    def _register(self, element, parent_frame):
+        """
+        @brief Adds an element to tf publish list
+        """
+        if element.id in self._to_rebase_list:
+            del self._to_rebase_list[element.id]
+        if not element.id in self._tf_list:
+            log.info("[AauSpatialReasoner] Publishing {} parent: {}".format(element, parent_frame))
+            self._trigger_children_update(element)
+        element.setData(":Orientation", self._quaternion_normalize(element.getData(":Orientation")))
+        element.setProperty("skiros:PublishTf", True)
+        self._tf_list[element.id] = element
+
+    def _unregister(self, element):
+        """
+        @brief Removes an element from tf publish list
+        """
+        if element.id in self._tf_list:
+            log.info("[AauSpatialReasoner] Stop publishing {}.".format(element))
+            element.setProperty("skiros:PublishTf", False)
+            del self._tf_list[element.id]
+            self._trigger_children_update(element)
+
+    def _format_element(self, element):
+        """
+        @brief Format element properties and register to tf publish list
+        """
+        #Add spatial relation if missing
+        c_rel = element.getRelation(pred=self._spatial_rels, obj="-1")
+        if not c_rel and element.hasProperty("skiros:PublishTf", True):
+            log.warn(self.__class__.__name__, "Adding relation to {}".format(element))
+            element.addRelation("skiros:Scene-0", "skiros:contain", "-1")
+
         element.setProperty("skiros:FrameId", element.id)
         #element.setProperty("skiros:FrameId", "{}-{}".format(element.label[element.label.find(':')+1:], element.getIdNumber()) if element.label!="" else element.id[element.id.find(':')+1:])
         parent_frame = self._getParentFrame(element)
@@ -189,32 +243,18 @@ class AauSpatialReasoner(DiscreteReasoner):
         if element.hasProperty("skiros:LinkedToFrameId") and not element.hasProperty("skiros:LinkedToFrameId", ""):
             self._linked_list[element.id] = None
             element.setProperty("skiros:BaseFrameId", parent_frame)
-        if not element.hasData(":Pose") or not element.hasProperty("skiros:PublishTf", value=True):
-            if self._tf_list.has_key(element.id):
-                log.info("[AauSpatialReasoner] Stop publishing {}.".format(element))
-                del self._tf_list[element.id]
-                self._updateChildren(element)
+        if not element.hasData(":Pose") or not element.hasProperty("skiros:PublishTf", value=True) and not element.id in self._to_rebase_list:
+            self._unregister(element)
         else:
             if base_frm=="":
                 element.setProperty("skiros:BaseFrameId", parent_frame)
             elif base_frm != parent_frame:
-                try:
-                    pose = element.getData(":PoseStampedMsg")
-                    # self._tlb.lookup_transform(parent_frame, pose.header.frame_id, pose.header.stamp, rospy.Duration(0.1))
-                    element.setData(":PoseStampedMsg", self._tlb.transform(pose, parent_frame))
-                    log.info(self.__class__.__name__, "{} transformed from base {} to base {}".format(element, base_frm, parent_frame))
-                except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
-                    log.error(self.__class__.__name__, "{} failed to transform from base {} to base {}. Error: {}".format(element, base_frm, parent_frame, e))
-                    element.setProperty("skiros:BaseFrameId", parent_frame)
-                    element.setProperty("skiros:PublishTf", False)
+                if not self._transform(element, parent_frame):
+                    self._unregister(element)
+                    self._to_rebase_list[element.id] = element
                     return
-            if not self._tf_list.has_key(element.id):
-                log.info("[AauSpatialReasoner] Publishing {} parent: {}".format(element, parent_frame))
-                self._updateChildren(element)
-            element.setData(":Orientation", self._quaternion_normalize(element.getData(":Orientation")))
-            # print(element.label)
+            self._register(element, parent_frame)
             self._publishTransform(element)
-            self._tf_list[element.id] = element
 
     def run(self):
         """
@@ -226,9 +266,10 @@ class AauSpatialReasoner(DiscreteReasoner):
         self._reset()
         rate = rospy.Rate(25)
         while not rospy.is_shutdown() and not self.stopRequested:
-            self._updatePositionFromSpeed()
-            self._updateLinkedObjects()
-            self._publishTfList()
+            self._process_to_rebase()
+            self._update_position_from_speed()
+            self._update_linked_objects()
+            self._publish_tf_list()
             rate.sleep()
 
     def onAddProperties(self, element):
