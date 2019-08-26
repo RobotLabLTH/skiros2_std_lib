@@ -2,6 +2,26 @@
 Changelog for package skiros2_std_reasoners
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge branch 'master' into develop
+* Merge remote-tracking branch 'scalable/master'
+* Spatial reasoner keeps trying to convert a pose to right parent frame. Timestamps info is removed after a successful transformation.
+* Minor fix and reduction for execution rate to 25Hz
+* Minor fix and reduction for execution rate to 25Hz
+* Modified warn output when missing tf.
+* Not publishing tf when transform fails
+* Restored precondition check in wm move object and spatial reasoner doesn't add relation to scene if PublishTf is false
+* Merge pull request `#1 <https://github.com/RVMI/skiros2_std_lib/issues/1>`_ from ScalABLE40/catkin_lint
+  Catkin lint
+* linted skiros2_std_reasoners
+* Handling of poses and transforms with a given timestamp
+* Bug-fix when removing property LinkedToFrameId and PushToFrameId
+* Spatial reasoner can push a frame id on tf when property PushToFrameId is set. Used to update the camera pose dynamically.
+* Minor change
+* Minor fix
+* Contributors: Bjarne Grossmann, Francesco, Ludovic Delval, RvmiLab, francesco
+
 1.0.1 (2019-05-22)
 ------------------
 * Fixed comments in spatial reasoner
