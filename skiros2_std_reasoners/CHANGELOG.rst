@@ -2,8 +2,8 @@
 Changelog for package skiros2_std_reasoners
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.2 (2019-08-26)
+------------------
 * Merge branch 'master' into develop
 * Merge remote-tracking branch 'scalable/master'
 * Spatial reasoner keeps trying to convert a pose to right parent frame. Timestamps info is removed after a successful transformation.
