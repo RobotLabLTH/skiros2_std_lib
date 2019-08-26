@@ -22,8 +22,8 @@ class PrimitiveActionClient(PrimitiveBase):
         return self.success("Stopped")
 
     def onStart(self):
-        self.q = Queue.Queue(1)
-        self._done = None
+        self.fb = Queue.Queue(1)
+        self.res = Queue.Queue(1)
         if self.build_client_onstart:
             self.client = self.buildClient()
         if not self.client.wait_for_server(rospy.Duration(0.5)):
@@ -32,26 +32,24 @@ class PrimitiveActionClient(PrimitiveBase):
         return True
 
     def restart(self, goal, text="Restarting action."):
-        self._done = None
         self.client.send_goal(goal, done_cb= self._doneCb, feedback_cb = self._feedbackCb)
         return self.step(text)
 
     def execute(self):
-        if not self.q.empty():
-            msg = self.q.get(False)
-            if self._done != None:
-                return self.onDone(self._done, msg)
-            else:
-                return self.onFeedback(msg)
+        if not self.fb.empty():
+            msg = self.fb.get(False)
+            return self.onFeedback(msg)
+        elif not self.res.empty():
+            msg, status = self.res.get(False)
+            return self.onDone(status, msg)
         return self.step("")
 
     def _doneCb(self, status, msg):
-        self.q.put(msg)
-        self._done = status
+        self.res.put((msg, status))
 
     def _feedbackCb(self, msg):
-        if self.q.empty():
-            self.q.put(msg)
+        if self.fb.empty():
+            self.fb.put(msg)
 
     def onInit(self):
         """
