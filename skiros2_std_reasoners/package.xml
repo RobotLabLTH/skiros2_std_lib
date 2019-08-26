@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package>
   <name>skiros2_std_reasoners</name>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
   <description>SkiROS library of standard reasoners for world model</description>
 
   <maintainer email="francesco@m-tech.aau.dk">Francesco Rovida</maintainer>
@@ -12,8 +12,6 @@
 
 
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>rospy</build_depend>
-  <build_depend>skiros2_msgs</build_depend>
   <run_depend>rospy</run_depend>
   <run_depend>skiros2_msgs</run_depend>
   <run_depend>skiros2_common</run_depend>

@@ -2,8 +2,8 @@
 Changelog for package skiros2_std_reasoners
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.1 (2019-05-22)
+------------------
 * Fixed comments in spatial reasoner
 * Spatial reasoner updates objects position based on velocity estimation
 * Changed transform message from warn to info
