@@ -2,6 +2,11 @@
 Changelog for package skiros2_std_reasoners
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.0.3 (2019-09-16)
+------------------
+* Fix to update of linked tf.
+* Contributors: francesco
+
 1.0.2 (2019-08-26)
 ------------------
 * Merge branch 'master' into develop

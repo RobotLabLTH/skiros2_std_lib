@@ -123,14 +123,13 @@ class AauSpatialReasoner(DiscreteReasoner):
             linked_frm = e.getProperty("skiros:LinkedToFrameId").value
             new_p, new_o = self._getTransform(base_frm, linked_frm)
             old_p, old_o = e.getData(":Pose")
-            if new_p and new_o:
-                #print "{} {}".format(self._vector_distance(new_p, old_p), self._vector_distance(new_o, old_o))
-                #TODO: vector distance for quaternions doesn't work, need angleShortestPath func
-                treshold = 0.001
-                # if old_p[0]==None or old_o[0]==None or self._vector_distance(new_p, old_p)>treshold:
+            try:
+                update = not all(numpy.isclose(new_p, old_p)) or not all(numpy.isclose(new_o, old_o))
+            except TypeError, e:
+                update = new_p is not None and new_o is not None
+            if update:
                 e = deepcopy(self._wmi.get_element(k))
                 e.setData(":Pose", (new_p, new_o))
-                #e.setProperty("skiros:TfTimeStamp", rospy.Time.now().to_sec())
                 self._wmi.update_properties(e, self.__class__.__name__, self)
         for e in self._e_to_update:
             self._wmi.update_element(e, self.__class__.__name__)

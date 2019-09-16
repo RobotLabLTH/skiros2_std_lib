@@ -106,7 +106,7 @@ class WmMoveObject(SkillDescription):
     """
     def createDescription(self):
         #=======Params=========
-        self.addParam("StartLocation", Element("sumo:Object"), ParamTypes.Required)
+        self.addParam("StartLocation", Element("sumo:Object"), ParamTypes.Inferred)
         self.addParam("TargetLocation", Element("sumo:Object"), ParamTypes.Optional)
         self.addParam("Object", Element("sumo:Object"), ParamTypes.Required)
         self.addParam("Relation", "skiros:contain", ParamTypes.Required)
