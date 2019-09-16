@@ -2,8 +2,8 @@
 Changelog for package skiros2_std_skills
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.3 (2019-09-16)
+------------------
 * Added service client to reset action server.
 * Inferring start location in move object skill
 * Contributors: francesco
