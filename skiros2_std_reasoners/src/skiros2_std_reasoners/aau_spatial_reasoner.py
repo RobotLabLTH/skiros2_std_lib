@@ -20,7 +20,8 @@ class AauSpatialReasoner(DiscreteReasoner):
     In self._linked_list keeps a list of objects that are linked to a tf already present in the tf system.
 
     Their pose is regularly updated (whenever it changes)
-
+    
+    >>> rospy.init_node('reasoner_test', anonymous=True)
     >>> sr = AauSpatialReasoner()
     >>> e = Element()
     >>> e2 = Element()
@@ -35,7 +36,7 @@ class AauSpatialReasoner(DiscreteReasoner):
     >>> sr.setData(e2,  [1.0, 1.0 ,1.0], ":OrientationEuler")
     >>> sr.setData(e2,  [1.0, 2.0 ,3.0], ":Size")
     >>> numpy.array(sr.getData(e, ":OrientationEuler"))
-    array([ 1.,  1.,  1.])
+    array([1., 1., 1.])
     >>> sr.computeRelations(e, e2)
     [':pX', ':pY', ':fZ', ':pA']
     >>> sr.setData(e2,  [4.0, 5.0 , -2.0], ":Position")
