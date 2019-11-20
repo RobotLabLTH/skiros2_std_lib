@@ -53,6 +53,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         Internally does 2 things: parse the object and in case add it to self._tflist
         """
         if element.id=="skiros:Scene-0" or not element.hasProperty("skiros:DiscreteReasoner", value="AauSpatialReasoner"):
+            self._unregister(element, False)
             return True
         if action=="add" or action=="update":
             self._format_element(element)
@@ -215,13 +216,14 @@ class AauSpatialReasoner(DiscreteReasoner):
         element.setProperty("skiros:PublishTf", True)
         self._tf_list[element.id] = element
 
-    def _unregister(self, element):
+    def _unregister(self, element, set_publish_property=True):
         """
         @brief Removes an element from tf publish list
         """
         if element.id in self._tf_list:
             log.info("[AauSpatialReasoner] Stop publishing {}.".format(element))
-            element.setProperty("skiros:PublishTf", False)
+            if set_publish_property:
+                element.setProperty("skiros:PublishTf", False)
             del self._tf_list[element.id]
             self._trigger_children_update(element)
 
