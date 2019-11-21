@@ -311,7 +311,8 @@ class AauSpatialReasoner(DiscreteReasoner):
         @brief Remove default reasoner properties to the element
         """
         for k in self.getAssociatedData():
-            element.removeProperty(k)
+            if element.hasProperty(k):
+                element.removeProperty(k)
 
     def hasData(self, element, get_code):
         """
