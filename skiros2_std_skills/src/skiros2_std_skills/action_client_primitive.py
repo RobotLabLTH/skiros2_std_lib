@@ -4,6 +4,7 @@ import skiros2_common.tools.logger as log
 import rospy
 import Queue
 from std_srvs.srv import Empty, EmptyRequest
+from actionlib_msgs.msg import GoalStatus
 
 class PrimitiveActionClient(PrimitiveBase):
     """
@@ -56,7 +57,13 @@ class PrimitiveActionClient(PrimitiveBase):
             return self.onDone(status, msg)
         return self.step("")
 
+    def get_result_msg(self):
+        return self.client.get_result()
+
     def _doneCb(self, status, msg):
+        if status == GoalStatus.RECALLED:
+            log.warn("Ignoring recalled goal.")
+            return
         self.res.put((msg, status))
 
     def _feedbackCb(self, msg):
