@@ -185,6 +185,7 @@ class counter(PrimitiveBase):
 
     def execute(self):
         if self._counter < self.params["CountTarget"].value:
+            self._counter += 1
             return self.step(self._print_count())
         else:
             return self.success(self._print_count())
