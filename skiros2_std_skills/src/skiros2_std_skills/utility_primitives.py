@@ -8,13 +8,16 @@ import rospy
 # Wait
 #################################################################################
 
+
 class Wait(SkillDescription):
     """
     @brief Returns Running for a specific amount of time
     """
+
     def createDescription(self):
-        #=======Params=========
+        # =======Params=========
         self.addParam("Duration", 0.0, ParamTypes.Required)
+
 
 class wait(PrimitiveBase):
     def createDescription(self):
@@ -42,12 +45,14 @@ class WmSetRelation(SkillDescription):
     """
     @brief Set a relation on the world model
     """
+
     def createDescription(self):
-        #=======Params=========
+        # =======Params=========
         self.addParam("Src", Element("sumo:Object"), ParamTypes.Required)
         self.addParam("Relation", str, ParamTypes.Required)
         self.addParam("Dst", Element("sumo:Object"), ParamTypes.Required)
         self.addParam("RelationState", True, ParamTypes.Required)
+
 
 class wm_set_relation(PrimitiveBase):
     def createDescription(self):
@@ -75,14 +80,17 @@ class wm_set_relation(PrimitiveBase):
 # Set relation
 #################################################################################
 
+
 class WmSetProperties(SkillDescription):
     """
     @brief Set some properties on an element
     """
+
     def createDescription(self):
-        #=======Params=========
+        # =======Params=========
         self.addParam("Src", Element("sumo:Object"), ParamTypes.Required)
         self.addParam("Properties", dict, ParamTypes.Required)
+
 
 class wm_set_properties(PrimitiveBase):
     def createDescription(self):
@@ -100,20 +108,23 @@ class wm_set_properties(PrimitiveBase):
 # WmMoveObject
 #################################################################################
 
+
 class WmMoveObject(SkillDescription):
     """
     @brief Move an Object from StartLocation to TargetLocation in the world model
     """
+
     def createDescription(self):
-        #=======Params=========
+        # =======Params=========
         self.addParam("StartLocation", Element("sumo:Object"), ParamTypes.Inferred)
         self.addParam("TargetLocation", Element("sumo:Object"), ParamTypes.Optional)
         self.addParam("Object", Element("sumo:Object"), ParamTypes.Required)
         self.addParam("Relation", "skiros:contain", ParamTypes.Required)
-        #=======PreConditions=========
+        # =======PreConditions=========
         self.addPreCondition(self.getRelationCond("StartContainObj", "skiros:spatiallyRelated", "StartLocation", "Object", True))
-        #=======PostConditions=========
+        # =======PostConditions=========
         #self.addPostCondition(self.getRelationCond("TargetContainObj", "skiros:spatiallyRelated", "TargetLocation", "Object", True))
+
 
 class wm_move_object(PrimitiveBase):
     """
@@ -121,6 +132,7 @@ class wm_move_object(PrimitiveBase):
 
     Set Target-Contain-Object on the world model
     """
+
     def createDescription(self):
         self.setDescription(WmMoveObject(), self.__class__.__name__)
 
@@ -142,3 +154,37 @@ class wm_move_object(PrimitiveBase):
         self._wmi.update_element_properties(target)
         self.params["Object"].value = objectt
         return self.success("{} moved from {} to {}.".format(objectt.id, start.id, target.id))
+
+#################################################################################
+# Counter
+#################################################################################
+
+
+class Counter(SkillDescription):
+    """
+    @brief      Returns Success after a number of tick
+    """
+
+    def createDescription(self):
+        self.addParam("CountTarget", int, ParamTypes.Required)
+
+
+class counter(PrimitiveBase):
+    def createDescription(self):
+        self.setDescription(Counter(), self.__class__.__name__)
+
+    def _print_count(self):
+        return "{}/{}".format(self._counter, self.params["CountTarget"].value)
+
+    def onPreempt(self):
+        return self.step(self._print_count())
+
+    def onStart(self):
+        self._counter = 0
+        return True
+
+    def execute(self):
+        if self._counter < self.params["CountTarget"].value:
+            return self.step(self._print_count())
+        else:
+            return self.success(self._print_count())
