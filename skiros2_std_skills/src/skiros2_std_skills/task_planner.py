@@ -1,4 +1,4 @@
-from skiros2_skill.core.skill import SkillDescription, SkillBase, Sequential, ParallelFf, State, SkillWrapper
+from skiros2_skill.core.skill import SkillDescription, SkillBase, SerialStar, ParallelFf, State, SkillWrapper
 from skiros2_common.core.world_element import Element
 from skiros2_common.core.params import ParamTypes
 from skiros2_task.ros.task_manager_interface import TaskManagerInterface
@@ -6,14 +6,18 @@ from skiros2_skill.ros.utils import deserialize_skill
 import skiros2_common.tools.logger as log
 
 class TaskPlan(SkillDescription):
-    """
-    """
     def createDescription(self):
         #=======Params=========
         self.addParam("Goal", str, ParamTypes.Required)
-        #self.addParam("TaskPlan", "", ParamTypes.Required)
 
 class task_plan(SkillBase):
+    """
+    @brief      This special skill is a client for the task planner action
+                server implemented in skiros2_task.
+
+                After a plan is received the skill expands, passing from being a
+                primitive to be a compound skill.
+    """
     def createDescription(self):
         self.setDescription(TaskPlan(), self.__class__.__name__)
         self._expand_on_start = True
@@ -56,39 +60,9 @@ class task_plan(SkillBase):
             return self.success(self._action_msg)
         elif self._skill_to_expand:
             task = deserialize_skill(self._action_msg)
-            self._skill_to_expand.setProcessor(Sequential())
+            self._skill_to_expand.setProcessor(SerialStar())
             task_string = self._add_children(self._skill_to_expand, task.children)
             self._skill_to_expand = None
             return self.step("{}".format(task_string))
         else:
-            super(SkillBase, self).execute()
-
-class DynamicTree(SkillDescription):
-    """
-    """
-    def createDescription(self):
-        #=======Params=========
-        self.addParam("TaskPlan", str, ParamTypes.Required)
-
-class dynamic_tree(SkillBase):
-    def createDescription(self):
-        self.setDescription(DynamicTree(), self.__class__.__name__)
-        self._expand_on_start = True
-
-    def expand(self, skill):
-        task = deserialize_skill(self.params["TaskPlan"].value)
-        self._add_children(skill, task)
-
-    def _add_children(self, skill, children):
-        string = "{}(".format(skill.label)
-        for i in children:
-            skill.addChild(self.skill(i.type, i.name))
-            skill.last().specifyParamsDefault(i.ph)
-            string += self._add_children(skill.last(), i.children)
-        return string + ") "
-
-    def execute(self):
-        if not self.children:
-            return self.success("No skills to execute.")
-        else:
-            super(SkillBase, self).execute()
+            super(task_plan, self).execute()
