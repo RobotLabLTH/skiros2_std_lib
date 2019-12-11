@@ -168,7 +168,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             new_p, new_o = self.get_transform(base_frm, linked_frm)
             old_p, old_o = e.getData(":Pose")
             try:
-                update = not all(numpy.isclose(new_p, old_p)) or not all(numpy.isclose(new_o, old_o))
+                update = self._vector_distance(new_p, old_p) > 1e-6 or self._vector_distance(new_o, old_o) > 1e-5
             except TypeError, e:
                 update = new_p is not None and new_o is not None
             if update:
