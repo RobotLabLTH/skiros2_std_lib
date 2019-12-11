@@ -119,7 +119,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                     fails.
         """
         try:
-            t = self._tlb.lookuptransform(base_frm, target_frm, rospy.Time(0), duration)
+            t = self._tlb.lookup_transform(base_frm, target_frm, rospy.Time(0), duration)
             return ((t.transform.translation.x, t.transform.translation.y, t.transform.translation.z),
                     (t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z, t.transform.rotation.w))
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
@@ -140,7 +140,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         """
         try:
             pose = element.getData(":PoseStampedMsg")
-            self._tlb.lookuptransform(target_frm, pose.header.frame_id, pose.header.stamp, duration)
+            self._tlb.lookup_transform(target_frm, pose.header.frame_id, pose.header.stamp, duration)
             element.setData(":PoseStampedMsg", self._tlb.transform(pose, target_frm))
             element.setProperty("skiros:TfTimeStamp", None)
             log.info(self.__class__.__name__, "{} transformed from base {} to base {}".format(
@@ -655,7 +655,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                 if obj.getProperty("skiros:FrameId").value == "":
                     obj.setProperty("skiros:FrameId", "obj_temp_frame")
                     self._tlb.settransform(self.getData(obj, ":TransformMsg"), "AauSpatialReasoner")
-                self._tlb.lookuptransform(obj_base_frame, sub_frame, rospy.Time(0), rospy.Duration(1.0))
+                self._tlb.lookup_transform(obj_base_frame, sub_frame, rospy.Time(0), rospy.Duration(1.0))
                 obj.setData(":PoseStampedMsg", self._tlb.transform(obj.getData(":PoseStampedMsg"), sub_frame))
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 log.error("[computeRelations]", "Couldn't transform object in frame {} to frame {}.".format(
