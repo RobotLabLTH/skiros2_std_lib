@@ -34,7 +34,7 @@ class wait(PrimitiveBase):
         duration = rospy.Time.now() - self.last
         if duration.to_sec() > self.params["Duration"].value:
             return self.success("Done")
-        return self.step("")
+        return self.step("Waiting {}".format(self.params["Duration"].value))
 
 
 #################################################################################
