@@ -3,7 +3,6 @@ from skiros2_common.core.params import ParamTypes
 import skiros2_common.tools.logger as log
 import rospy
 import Queue
-from std_srvs.srv import Empty, EmptyRequest
 from actionlib_msgs.msg import GoalStatus
 
 class PrimitiveActionClient(PrimitiveBase):
@@ -16,9 +15,6 @@ class PrimitiveActionClient(PrimitiveBase):
     (save up to 0.3 seconds). Default is True
     """
     build_client_onstart = True
-
-    def modifyDescription(self, skill):
-        skill.addParam("Reset", bool, ParamTypes.Required, "If True, reset the server, if config service is available.")
 
     def onPreempt(self):
         """
@@ -34,13 +30,6 @@ class PrimitiveActionClient(PrimitiveBase):
             self.client = self.buildClient()
         if not self.client.wait_for_server(rospy.Duration(0.5)):
             return self.startError("Action server {} is not available.".format(self.client.action_client.ns), -101)
-        if self.params["Reset"].value:
-            self.params["Reset"].value = False
-            try:
-                srv = rospy.ServiceProxy('/{}/config'.format(self.client.action_client.ns), Empty)
-                srv(EmptyRequest())
-            except rospy.ServiceException, e:
-                log.warn("[PrimitiveActionClient]", "Server reset failed. {}".format(e))
         self.client.send_goal(self.buildGoal(), done_cb= self._doneCb, feedback_cb = self._feedbackCb)
         return True
 
@@ -78,12 +67,6 @@ class PrimitiveActionClient(PrimitiveBase):
         if not self.build_client_onstart:
             self.client = self.buildClient()
         return True
-
-    def onReset(self):
-        """
-        @brief Optional to override. Re-initialize the primitive
-        """
-        pass
 
     def onEnd(self):
         """
