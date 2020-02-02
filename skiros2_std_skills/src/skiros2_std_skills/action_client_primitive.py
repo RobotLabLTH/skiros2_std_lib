@@ -2,8 +2,11 @@ from skiros2_common.core.primitive import PrimitiveBase
 from skiros2_common.core.params import ParamTypes
 import skiros2_common.tools.logger as log
 import rospy
-import Queue
 from std_srvs.srv import Empty, EmptyRequest
+try:
+    import Queue as queue
+except ImportError:
+    import queue
 
 class PrimitiveActionClient(PrimitiveBase):
     """
@@ -27,8 +30,8 @@ class PrimitiveActionClient(PrimitiveBase):
         return self.success("Stopped")
 
     def onStart(self):
-        self.fb = Queue.Queue(1)
-        self.res = Queue.Queue(1)
+        self.fb = queue.Queue(1)
+        self.res = queue.Queue(1)
         if self.build_client_onstart:
             self.client = self.buildClient()
         if not self.client.wait_for_server(rospy.Duration(0.5)):
@@ -38,7 +41,7 @@ class PrimitiveActionClient(PrimitiveBase):
             try:
                 srv = rospy.ServiceProxy('/{}/config'.format(self.client.action_client.ns), Empty)
                 srv(EmptyRequest())
-            except rospy.ServiceException, e:
+            except rospy.ServiceException as e:
                 log.warn("[PrimitiveActionClient]", "Server reset failed. {}".format(e))
         self.client.send_goal(self.buildGoal(), done_cb= self._doneCb, feedback_cb = self._feedbackCb)
         return True
