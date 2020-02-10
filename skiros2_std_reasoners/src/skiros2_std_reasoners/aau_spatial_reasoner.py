@@ -288,14 +288,16 @@ class AauSpatialReasoner(DiscreteReasoner):
 
         element.setProperty("skiros:FrameId", element.id)
         parent_frame = self._getParentFrame(element)
-        base_frm = element.getProperty("skiros:BaseFrameId").value
         if element.hasProperty("skiros:LinkedToFrameId") and not element.hasProperty("skiros:LinkedToFrameId", ""):
             self._linked_list[element.id] = None
             element.setProperty("skiros:BaseFrameId", parent_frame)
-        if not element.hasData(":Pose") or not element.hasProperty("skiros:PublishTf", value=True) \
+        if not element.hasProperty("skiros:PublishTf", value=True) \
+            or not numpy.isfinite(element.getData(":Position")).all() \
+            or not numpy.isfinite(element.getData(":Orientation")).all() \
                 and not element.id in self._to_rebase_list:
             self._unregister(element)
         else:
+            base_frm = element.getProperty("skiros:BaseFrameId").value
             if base_frm == "":
                 element.setProperty("skiros:BaseFrameId", parent_frame)
             elif base_frm != parent_frame:
