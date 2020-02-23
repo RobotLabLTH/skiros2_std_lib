@@ -2,7 +2,6 @@ from skiros2_common.core.primitive import PrimitiveBase
 from skiros2_common.core.params import ParamTypes
 import skiros2_common.tools.logger as log
 import rospy
-import Queue
 from actionlib_msgs.msg import GoalStatus
 try:
     import Queue as queue
