@@ -4,6 +4,10 @@ import skiros2_common.tools.logger as log
 import rospy
 import Queue
 from actionlib_msgs.msg import GoalStatus
+try:
+    import Queue as queue
+except ImportError:
+    import queue
 
 class PrimitiveActionClient(PrimitiveBase):
     """
@@ -24,8 +28,8 @@ class PrimitiveActionClient(PrimitiveBase):
         return self.success("Stopped")
 
     def onStart(self):
-        self.fb = Queue.Queue(1)
-        self.res = Queue.Queue(1)
+        self.fb = queue.Queue(1)
+        self.res = queue.Queue(1)
         if self.build_client_onstart:
             self.client = self.buildClient()
         if not self.client.wait_for_server(rospy.Duration(0.5)):

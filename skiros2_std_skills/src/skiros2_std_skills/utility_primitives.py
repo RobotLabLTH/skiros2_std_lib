@@ -99,7 +99,7 @@ class wm_set_properties(PrimitiveBase):
     def execute(self):
         src = self.params["Src"].value
         props = self.params["Properties"].value
-        for k, v in props.iteritems():
+        for k, v in props.items():
             src.setProperty(k, v)
         self.params["Src"].value = src
         return self.success("Setted properties to {}. {}".format(src.id, props))
