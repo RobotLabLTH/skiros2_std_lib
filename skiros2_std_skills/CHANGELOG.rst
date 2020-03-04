@@ -2,8 +2,8 @@
 Changelog for package skiros2_std_skills
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.4 (2020-03-04)
+------------------
 * Finish config-service
 * Added output string in wait skill
 * Change Sequential to SerialStar

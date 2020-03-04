@@ -2,8 +2,8 @@
 Changelog for package skiros2_std_reasoners
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.4 (2020-03-04)
+------------------
 * Fix for possible crash with None in pose
 * Element parsing extended to stop tf publishing if nan or inf is in the pose
 * Using vector distance to update element pose less often. (using same thresholds as in rosmogen).
