@@ -2,6 +2,16 @@
 Changelog for package skiros2_std_skills
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.0.4 (2020-03-04)
+------------------
+* Finish config-service
+* Added output string in wait skill
+* Change Sequential to SerialStar
+* Fixed counter
+* Added counter skill. Pep8 format.
+* Ignoring recalled status in action client
+* Contributors: RvmiLab, francesco
+
 1.0.3 (2019-09-16)
 ------------------
 * Added service client to reset action server.

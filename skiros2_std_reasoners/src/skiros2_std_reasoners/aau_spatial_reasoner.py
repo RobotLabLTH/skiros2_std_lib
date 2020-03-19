@@ -292,6 +292,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             self._linked_list[element.id] = None
             element.setProperty("skiros:BaseFrameId", parent_frame)
         if not element.hasProperty("skiros:PublishTf", value=True) \
+            or not element.hasData(":Pose") \
             or not numpy.isfinite(element.getData(":Position")).all() \
             or not numpy.isfinite(element.getData(":Orientation")).all() \
                 and not element.id in self._to_rebase_list:
