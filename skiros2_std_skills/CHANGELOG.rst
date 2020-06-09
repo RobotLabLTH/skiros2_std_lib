@@ -2,6 +2,15 @@
 Changelog for package skiros2_std_skills
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.0.5 (2020-06-09)
+------------------
+* Merge pull request `#7 <https://github.com/RVMI/skiros2_std_lib/issues/7>`_ from RVMI/python3
+  Python3
+* Merge branch 'develop' into python3
+* remove original Queue import
+* py3-fixes
+* Contributors: Emmanuel Kring, Francesco Rovida, emmanuelkring
+
 1.0.4 (2020-03-04)
 ------------------
 * Finish config-service

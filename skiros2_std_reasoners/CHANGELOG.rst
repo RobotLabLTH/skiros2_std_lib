@@ -2,6 +2,15 @@
 Changelog for package skiros2_std_reasoners
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.0.5 (2020-06-09)
+------------------
+* Added dependency on tf2_geometry_msgs
+* Merge pull request `#7 <https://github.com/RVMI/skiros2_std_lib/issues/7>`_ from RVMI/python3
+  Python3
+* Merge branch 'develop' into python3
+* py3-fixes
+* Contributors: Emmanuel Kring, Francesco Rovida, emmanuelkring, francesco
+
 1.0.4 (2020-03-04)
 ------------------
 * Fix for possible crash with None in pose

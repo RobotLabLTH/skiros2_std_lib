@@ -170,7 +170,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             old_p, old_o = e.getData(":Pose")
             try:
                 update = self._vector_distance(new_p, old_p) > 1e-6 or self._vector_distance(new_o, old_o) > 1e-5
-            except TypeError, e:
+            except TypeError as e:
                 update = new_p is not None and new_o is not None
             if update:
                 e = deepcopy(self._wmi.get_element(k))
