@@ -4,7 +4,9 @@ import tf2_ros as tf
 from tf2_geometry_msgs import PoseStamped
 import tf.transformations as tf_conv
 from geometry_msgs.msg import Pose, TransformStamped
-import rospy
+import rclpy
+from rclpy.duration import Duration
+from rclpy.time import Time
 import numpy
 from copy import deepcopy
 from math import acos
@@ -23,7 +25,7 @@ class AauSpatialReasoner(DiscreteReasoner):
 
         Their pose is regularly updated (whenever it changes)
 
-        >>> rospy.init_node('reasoner_test', anonymous=True)
+        >>> rclpy.init_node('reasoner_test', anonymous=True)
         >>> sr = AauSpatialReasoner()
         >>> e = Element()
         >>> e2 = Element()
@@ -107,35 +109,35 @@ class AauSpatialReasoner(DiscreteReasoner):
         else:
             return self._getParentFrame(parent)
 
-    def get_transform(self, base_frm, target_frm, duration=rospy.Duration(0.0)):
+    def get_transform(self, base_frm, target_frm, duration=Duration(0.0)):
         """
         @brief      Gets the transform from base_frm to target_frm
 
         @param      base_frm    (string) The base frame
         @param      target_frm  (string) The target frame
-        @param      duration    (rospy.Duration) Timeout for retrieving the tf
+        @param      duration    (Duration) Timeout for retrieving the tf
 
         @return     (list(float), list(float)) Tuple with position and
                     orientation quaternion. (None, None) if transformation
                     fails.
         """
         try:
-            t = self._tlb.lookup_transform(base_frm, target_frm, rospy.Time(0), duration)
+            t = self._tlb.lookup_transform(base_frm, target_frm, Time(0), duration)
             return ((t.transform.translation.x, t.transform.translation.y, t.transform.translation.z),
                     (t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z, t.transform.rotation.w))
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
-            rospy.logwarn_throttle(1, "[{}] No tf found between {} {}. Error: {} ".format(
+            rclpy.logwarn_throttle(1, "[{}] No tf found between {} {}. Error: {} ".format(
                 self.__class__.__name__, base_frm, target_frm, e))
             return (None, None)
 
-    def transform(self, element, target_frm, duration=rospy.Duration(0.0)):
+    def transform(self, element, target_frm, duration=Duration(0.0)):
         """
         @brief      Transform the element pose into target_frame. The element is
                     directly modified.
 
         @param      element     (Element) The element to modify
         @param      target_frm  (string) The target frame
-        @param      duration    (rospy.Duration) Timeout for retrieving the tf
+        @param      duration    (Duration) Timeout for retrieving the tf
 
         @return     True if pose was changed, False otherwise
         """
@@ -148,7 +150,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                 element, pose.header.frame_id, target_frm))
             return True
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
-            rospy.logwarn_throttle(1, "[{}] {} failed to transform from base {} to base {}. Error: {}".format(
+            rclpy.logwarn_throttle(1, "[{}] {} failed to transform from base {} to base {}. Error: {}".format(
                 self.__class__.__name__, element, pose.header.frame_id, target_frm, e))
             return False
 
@@ -187,7 +189,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         @param      e     (Element)
         """
         tf = e.getData(":TransformMsg")
-        tf.header.stamp = rospy.Time.now()
+        tf.header.stamp = Time.now()
         self._tb.sendTransform(tf)
         if e.hasProperty("skiros:PushToFrameId", not_none=True) and not e.hasProperty("skiros:PushToFrameId", ""):
             tf.child_frame_id = e.getProperty("skiros:PushToFrameId").value
@@ -226,7 +228,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         """
         @brief Updates objects position based on velocity
         """
-        now = rospy.Time.now()
+        now = Time.now()
         dt = (now - self._last_time).to_sec()
         self._last_time = now
         for element in self._tf_list.values():
@@ -296,7 +298,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             or not element.hasData(":Pose") \
             or not numpy.isfinite(element.getData(":Position")).all() \
             or not numpy.isfinite(element.getData(":Orientation")).all() \
-                and not element.id in self._to_rebase_list:
+                and element.id not in self._to_rebase_list:
             self._unregister(element)
         else:
             base_frm = element.getProperty("skiros:BaseFrameId").value
@@ -316,10 +318,10 @@ class AauSpatialReasoner(DiscreteReasoner):
         """
         self._e_to_update = list()
         self._tb = tf.TransformBroadcaster()
-        self._last_time = rospy.Time.now()
+        self._last_time = Time.now()
         self._reset()
-        rate = rospy.Rate(25)
-        while not rospy.is_shutdown() and not self.stopRequested:
+        rate = self._node.create_rate(25)
+        while rclpy.ok() and not self.stopRequested:
             self._process_to_rebase()
             self._update_position_from_speed()
             self._update_linked_objects()
@@ -400,9 +402,9 @@ class AauSpatialReasoner(DiscreteReasoner):
             msg = TransformStamped()
             msg.header.frame_id = element.getProperty("skiros:BaseFrameId").value
             if not element.hasProperty("skiros:TfTimeStamp", not_none=True):
-                msg.header.stamp = rospy.Time(0)
+                msg.header.stamp = Time(0)
             else:
-                msg.header.stamp = rospy.Time.from_sec(element.getProperty("skiros:TfTimeStamp").value)
+                msg.header.stamp = Time.from_sec(element.getProperty("skiros:TfTimeStamp").value)
             msg.child_frame_id = element.getProperty("skiros:FrameId").value
             msg.transform.translation.x = element.getProperty("skiros:PositionX").value
             msg.transform.translation.y = element.getProperty("skiros:PositionY").value
@@ -426,9 +428,9 @@ class AauSpatialReasoner(DiscreteReasoner):
             msg = PoseStamped()
             msg.header.frame_id = element.getProperty("skiros:BaseFrameId").value
             if not element.hasProperty("skiros:TfTimeStamp", not_none=True):
-                msg.header.stamp = rospy.Time(0)
+                msg.header.stamp = Time(0)
             else:
-                msg.header.stamp = rospy.Time.from_sec(element.getProperty("skiros:TfTimeStamp").value)
+                msg.header.stamp = Time.from_sec(element.getProperty("skiros:TfTimeStamp").value)
             msg.pose.position.x = element.getProperty("skiros:PositionX").value
             msg.pose.position.y = element.getProperty("skiros:PositionY").value
             msg.pose.position.z = element.getProperty("skiros:PositionZ").value
@@ -659,7 +661,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                 if obj.getProperty("skiros:FrameId").value == "":
                     obj.setProperty("skiros:FrameId", "obj_temp_frame")
                     self._tlb.settransform(self.getData(obj, ":TransformMsg"), "AauSpatialReasoner")
-                self._tlb.lookup_transform(obj_base_frame, sub_frame, rospy.Time(0), rospy.Duration(1.0))
+                self._tlb.lookup_transform(obj_base_frame, sub_frame, Time(0), Duration(1.0))
                 obj.setData(":PoseStampedMsg", self._tlb.transform(obj.getData(":PoseStampedMsg"), sub_frame))
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 log.error("[computeRelations]", "Couldn't transform object in frame {} to frame {}.".format(
@@ -668,7 +670,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         # Get corners a1,a2,b1,b2
         sp = numpy.array([0, 0, 0])
         ss = numpy.array(self.getData(sub, ":Size"))
-        if ss[0] == None:
+        if ss[0] is None:
             ss = numpy.array([0, 0, 0])
         a1 = sp-ss/2
         a2 = sp+ss/2

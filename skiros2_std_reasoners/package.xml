@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
-<package>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
   <name>skiros2_std_reasoners</name>
   <version>1.0.5</version>
   <description>SkiROS library of standard reasoners for world model</description>
@@ -11,10 +12,12 @@
   <author>Francesco Rovida</author>
 
 
-  <buildtool_depend>catkin</buildtool_depend>
-  <run_depend>rospy</run_depend>
-  <run_depend>skiros2_msgs</run_depend>
-  <run_depend>skiros2_common</run_depend>
-  <run_depend>skiros2_world_model</run_depend>
-  <run_depend>tf2_geometry_msgs</run_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>python3-rdflib</exec_depend>
+  <exec_depend>skiros2</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
 </package>
