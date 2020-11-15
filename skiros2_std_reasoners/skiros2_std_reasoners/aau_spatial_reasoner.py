@@ -1,9 +1,8 @@
 from skiros2_common.core.discrete_reasoner import DiscreteReasoner
 import skiros2_common.tools.logger as log
 import tf2_ros as tf
-from tf2_geometry_msgs import PoseStamped
-import tf.transformations as tf_conv
-from geometry_msgs.msg import Pose, TransformStamped
+from .transformations import euler_from_quaternion, quaternion_from_euler
+from geometry_msgs.msg import Pose, TransformStamped, PoseStamped
 import rclpy
 from rclpy.duration import Duration
 from rclpy.time import Time
@@ -11,11 +10,10 @@ import numpy
 from copy import deepcopy
 from math import acos
 from numpy import clip
-from skiros2_common.core.world_element import Element
 
 
 class AauSpatialReasoner(DiscreteReasoner):
-    def __init__(self):
+    def init_ros(self, node):
         """
         @brief Reasoner handling transformations and spatial relations
 
@@ -47,8 +45,9 @@ class AauSpatialReasoner(DiscreteReasoner):
         >>> sr.computeRelations(e, e2)
         [':pX', ':pY', ':miZ', ':pA']
         """
+        super(AauSpatialReasoner, self).init_ros(node)
         self._tlb = tf.Buffer()
-        self._tl = tf.TransformListener(self._tlb)
+        self._tl = tf.TransformListener(self._tlb, self._node)
 
     def parse(self, element, action):
         """
@@ -109,7 +108,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         else:
             return self._getParentFrame(parent)
 
-    def get_transform(self, base_frm, target_frm, duration=Duration(0.0)):
+    def get_transform(self, base_frm, target_frm, duration=Duration(nanoseconds=0.0)):
         """
         @brief      Gets the transform from base_frm to target_frm
 
@@ -130,7 +129,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                 self.__class__.__name__, base_frm, target_frm, e))
             return (None, None)
 
-    def transform(self, element, target_frm, duration=Duration(0.0)):
+    def transform(self, element, target_frm, duration=Duration(nanoseconds=0.0)):
         """
         @brief      Transform the element pose into target_frame. The element is
                     directly modified.
@@ -189,7 +188,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         @param      e     (Element)
         """
         tf = e.getData(":TransformMsg")
-        tf.header.stamp = Time.now()
+        tf.header.stamp = self._node.get_clock().now()
         self._tb.sendTransform(tf)
         if e.hasProperty("skiros:PushToFrameId", not_none=True) and not e.hasProperty("skiros:PushToFrameId", ""):
             tf.child_frame_id = e.getProperty("skiros:PushToFrameId").value
@@ -223,27 +222,6 @@ class AauSpatialReasoner(DiscreteReasoner):
             if r['dst'] in self._tf_list:
                 log.debug("[{}]".format(self.__class__.__name__), " {} updates child {}".format(e.id, r['dst']))
                 self._e_to_update.append(self._wmi.get_element(r['dst']))
-
-    def _update_position_from_speed(self):
-        """
-        @brief Updates objects position based on velocity
-        """
-        now = Time.now()
-        dt = (now - self._last_time).to_sec()
-        self._last_time = now
-        for element in self._tf_list.values():
-            update = False
-            if element.hasProperty("skiros:VelocityX"):
-                update = True
-                element.getProperty("skiros:PositionX").value += element.getProperty("skiros:VelocityX").value * dt
-            if element.hasProperty("skiros:VelocityY"):
-                update = True
-                element.getProperty("skiros:PositionY").value += element.getProperty("skiros:VelocityY").value * dt
-            if element.hasProperty("skiros:VelocityZ"):
-                update = True
-                element.getProperty("skiros:PositionZ").value += element.getProperty("skiros:VelocityZ").value * dt
-            if update:
-                self._wmi.update_properties(element, self.__class__.__name__, self)
 
     def _process_to_rebase(self):
         """
@@ -317,13 +295,12 @@ class AauSpatialReasoner(DiscreteReasoner):
         @brief Run the reasoner daemon on the world model
         """
         self._e_to_update = list()
-        self._tb = tf.TransformBroadcaster()
-        self._last_time = Time.now()
+        self._tb = tf.TransformBroadcaster(self._node)
+        self._last_time = self._node.get_clock().now()
         self._reset()
         rate = self._node.create_rate(25)
         while rclpy.ok() and not self.stopRequested:
             self._process_to_rebase()
-            self._update_position_from_speed()
             self._update_linked_objects()
             self._publish_tf_list()
             rate.sleep()
@@ -449,7 +426,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                     element.getProperty("skiros:OrientationZ").value,
                     element.getProperty("skiros:OrientationW").value]
         elif get_code == ":OrientationEuler":
-            return list(tf_conv.euler_from_quaternion([element.getProperty("skiros:OrientationX").value,
+            return list(euler_from_quaternion([element.getProperty("skiros:OrientationX").value,
                                                        element.getProperty("skiros:OrientationY").value,
                                                        element.getProperty("skiros:OrientationZ").value,
                                                        element.getProperty("skiros:OrientationW").value]))
@@ -505,7 +482,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             element.getProperty("skiros:OrientationZ").value = data[2]
             element.getProperty("skiros:OrientationW").value = data[3]
         elif set_code == ":OrientationEuler":
-            q = tf_conv.quaternion_from_euler(*data)
+            q = quaternion_from_euler(*data)
             element.getProperty("skiros:OrientationX").value = q[0]
             element.getProperty("skiros:OrientationY").value = q[1]
             element.getProperty("skiros:OrientationZ").value = q[2]
@@ -661,7 +638,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                 if obj.getProperty("skiros:FrameId").value == "":
                     obj.setProperty("skiros:FrameId", "obj_temp_frame")
                     self._tlb.settransform(self.getData(obj, ":TransformMsg"), "AauSpatialReasoner")
-                self._tlb.lookup_transform(obj_base_frame, sub_frame, Time(0), Duration(1.0))
+                self._tlb.lookup_transform(obj_base_frame, sub_frame, Time(0), Duration(nanoseconds=10**9))
                 obj.setData(":PoseStampedMsg", self._tlb.transform(obj.getData(":PoseStampedMsg"), sub_frame))
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 log.error("[computeRelations]", "Couldn't transform object in frame {} to frame {}.".format(
