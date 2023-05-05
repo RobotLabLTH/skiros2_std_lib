@@ -62,6 +62,8 @@ class wm_set_relation(PrimitiveBase):
         src = self.params["Src"].value
         relation = self.params["Relation"].value
         dst = self.params["Dst"].value
+        if src == dst:
+            return self.fail("Can not relate {} with itself.".format(src), -1)
         if self.params["RelationState"].value:
             src.setRelation("-1", relation, dst.id)
             dst.setRelation(src.id, relation, "-1")
