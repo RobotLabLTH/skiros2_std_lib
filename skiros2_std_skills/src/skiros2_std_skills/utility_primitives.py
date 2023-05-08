@@ -145,8 +145,8 @@ class wm_move_object(PrimitiveBase):
     def execute(self):
         start = self.params["StartLocation"].value
         target = self.params["TargetLocation"].value if self.params["TargetLocation"].value.id else start
-        objectt = self.params["Object"].value
-        rel = objectt.getRelation(pred=self._wmi.get_sub_properties("skiros:spatiallyRelated"), obj="-1")
+        obj = self.params["Object"].value
+        rel = obj.getRelation(pred=self._wmi.get_sub_properties("skiros:spatiallyRelated"), obj="-1")
 
         start.setProperty("skiros:ContainerState", "Empty")
         target.setProperty("skiros:ContainerState", "Full")
@@ -154,8 +154,57 @@ class wm_move_object(PrimitiveBase):
         rel["type"] = self.params["Relation"].value
         self._wmi.update_element_properties(start)
         self._wmi.update_element_properties(target)
-        self.params["Object"].value = objectt
-        return self.success("{} moved from {} to {}.".format(objectt.id, start.id, target.id))
+        self.params["Object"].value = obj
+        return self.success("{} moved from {} to {}.".format(obj.id, start.id, target.id))
+
+
+class wm_move_and_transform_object(PrimitiveBase):
+    """
+    Instant primitive
+
+    Set Target-Contain-Object on the world model and expresses the transformation in the frame of the target location
+    """
+
+    def createDescription(self):
+        self.setDescription(WmMoveObject(), self.__class__.__name__)
+
+    def onEnd(self):
+        self.params["StartLocation"].unset()
+        return True
+
+    def transform_to_frame(self, element, target_frame):
+        if not element.hasProperty("skiros:FrameId", not_none=True):
+            raise Exception("Missing pose info for target.")
+        reasoner = element._getReasoner("AauSpatialReasoner")
+        reasoner.get_transform(element.getProperty(
+            "skiros:FrameId").value, target_frame)
+        reasoner.transform(element, target_frame)
+        return element
+
+    def execute(self):
+        start = self.params["StartLocation"].value
+        target = self.params["TargetLocation"].value if self.params["TargetLocation"].value.id else start
+        obj = self.params["Object"].value
+        rel = obj.getRelation(pred=self._wmi.get_sub_properties("skiros:spatiallyRelated"), obj="-1")
+
+        start.setProperty("skiros:ContainerState", "Empty")
+        target.setProperty("skiros:ContainerState", "Full")
+        rel["src"] = target.id
+        rel["type"] = self.params["Relation"].value
+
+        if not target.hasProperty("skiros:FrameId", not_none=True):
+            return self.fail("{} has no property 'skiros:FrameId'. Can not transform".format(obj.id), -1)
+        new_parent_frame = target.getProperty("skiros:FrameId").value
+        if not self.transform_to_frame(obj, new_parent_frame):
+            return self.fail("Could not transform {} into parent frame {}.".format(obj.id, new_parent_frame), -2)
+        obj.setProperty("skiros:BaseFrameId", new_parent_frame)
+
+        self._wmi.update_element_properties(start)
+        self._wmi.update_element_properties(target)
+        self._wmi.update_element_properties(obj)
+        self.params["Object"].value = obj
+        return self.success("{} moved from {} to {}.".format(obj.id, start.id, target.id))
+
 
 #################################################################################
 # Counter
