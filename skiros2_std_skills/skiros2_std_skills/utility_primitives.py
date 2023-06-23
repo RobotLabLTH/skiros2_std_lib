@@ -76,6 +76,8 @@ class wm_set_relation(PrimitiveBase):
                 src.removeRelation(rel)
         self.params["Src"].value = src
         self.params["Dst"].value = dst
+        self._wmi.update_element(src)
+        self._wmi.update_element(dst)
         return self.success("{} {}-{}-{}".format("Set" if self.params["RelationState"].value else "Unset", src.id, relation, dst.id))
 
 #################################################################################
@@ -104,6 +106,7 @@ class wm_set_properties(PrimitiveBase):
         for k, v in props.items():
             src.setProperty(k, v)
         self.params["Src"].value = src
+        self._wmi.update_element_properties(src)
         return self.success("Setted properties to {}. {}".format(src.id, props))
 
 #################################################################################
