@@ -259,7 +259,8 @@ class AauSpatialReasoner(DiscreteReasoner):
         """
         @brief Process elements requiring a rebase
         """
-        for element in self._to_rebase_list.values():
+        rebase_l = list(self._to_rebase_list.values())
+        for element in rebase_l:
             parent_frame = self._getParentFrame(element)
             if self.transform(element, parent_frame):
                 self._register(element, parent_frame)
