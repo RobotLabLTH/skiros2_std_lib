@@ -196,7 +196,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             return
         tf = e.getData(":TransformMsg")
         tf.header.stamp = now
-	e._last_tf_timestamp = now
+        e._last_tf_timestamp = now
         self._tb.sendTransform(tf)
         if e.hasProperty("skiros:PushToFrameId", not_none=True) and not e.hasProperty("skiros:PushToFrameId", ""):
             tf.child_frame_id = e.getProperty("skiros:PushToFrameId").value
