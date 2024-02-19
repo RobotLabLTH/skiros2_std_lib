@@ -195,7 +195,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         if e._last_tf_timestamp == now:
             return
         tf = e.getData(":TransformMsg")
-        tf.header.stamp = now
+        tf.header.stamp = now.to_msg()
         e._last_tf_timestamp = now
         self._tb.sendTransform(tf)
         if e.hasProperty("skiros:PushToFrameId", not_none=True) and not e.hasProperty("skiros:PushToFrameId", ""):
@@ -279,7 +279,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         element.setData(":Orientation", self._quaternion_normalize(
             element.getData(":Orientation")))
         element.setProperty("skiros:PublishTf", True)
-        element._last_tf_timestamp = 0
+        element._last_tf_timestamp = self._node.get_clock().now()
         self._tf_list[element.id] = element
 
     def _unregister(self, element, set_publish_property=True):
@@ -416,9 +416,9 @@ class AauSpatialReasoner(DiscreteReasoner):
             msg = TransformStamped()
             msg.header.frame_id = element.getProperty("skiros:BaseFrameId").value
             if not element.hasProperty("skiros:TfTimeStamp", not_none=True):
-                msg.header.stamp = Time(0)
+                msg.header.stamp = Time().to_msg()
             else:
-                msg.header.stamp = Time.from_sec(element.getProperty("skiros:TfTimeStamp").value)
+                msg.header.stamp = Time.from_sec(element.getProperty("skiros:TfTimeStamp").value).to_msg()
             msg.child_frame_id = element.getProperty("skiros:FrameId").value
             msg.transform.translation.x = element.getProperty("skiros:PositionX").value
             msg.transform.translation.y = element.getProperty("skiros:PositionY").value
@@ -442,9 +442,9 @@ class AauSpatialReasoner(DiscreteReasoner):
             msg = PoseStamped()
             msg.header.frame_id = element.getProperty("skiros:BaseFrameId").value
             if not element.hasProperty("skiros:TfTimeStamp", not_none=True):
-                msg.header.stamp = Time(0)
+                msg.header.stamp = Time().to_msg()
             else:
-                msg.header.stamp = Time.from_sec(element.getProperty("skiros:TfTimeStamp").value)
+                msg.header.stamp = Time.from_sec(element.getProperty("skiros:TfTimeStamp").value).to_msg()
             msg.pose.position.x = element.getProperty("skiros:PositionX").value
             msg.pose.position.y = element.getProperty("skiros:PositionY").value
             msg.pose.position.z = element.getProperty("skiros:PositionZ").value
