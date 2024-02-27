@@ -1,12 +1,32 @@
+from skiros2_common.core.abstract_skill import State
 from skiros2_common.core.primitive import PrimitiveBase
 from skiros2_common.core.params import ParamTypes
 import skiros2_common.tools.logger as log
-import rospy
+import rclpy
+from rclpy import action, task
 from actionlib_msgs.msg import GoalStatus
-try:
-    import Queue as queue
-except ImportError:
-    import queue
+import queue
+from threading import Lock
+from typing import Optional
+from action_msgs.msg import GoalStatus
+
+class AtomicVar:
+    def __init__(self, initialValue: Optional[any]=None, sharedLock: Optional[Lock] = None) -> None:
+        self.lock = sharedLock
+        self.var = initialValue
+        if self.lock is None:
+            self.lock = Lock()
+    
+    def get_and_reset(self):
+        with self.lock:
+            var = self.var
+            if var is not None:
+                self.var = None
+            return var
+
+    def set(self, var):
+        with self.lock:
+            self.var = var
 
 class PrimitiveActionClient(PrimitiveBase):
     """
@@ -23,44 +43,95 @@ class PrimitiveActionClient(PrimitiveBase):
         """
         @brief Cancel all goals
         """
-        self.client.cancel_all_goals()
-        return self.success("Stopped")
+        
+        log.info("cancel requested")
+        if self._goal_handle is not None:
+            future = self._goal_handle.cancel_goal_async()
+            future.add_done_callback(self._cancel_callback)
+
+            log.info("cancel requested completed.")
+            return self.success("Cancel requested.")
+        else:
+            return self.fail("Goal has not been accepted or rejected, cannot cancel.")
 
     def onStart(self):
-        self.fb = queue.Queue(1)
-        self.res = queue.Queue(1)
+        self._feedback_msg = AtomicVar()
+        self._goal_msg = AtomicVar()
+        self._result_msg = AtomicVar()
+        self._fail_status = AtomicVar()
+
         if self.build_client_onstart:
             self.client = self.buildClient()
-        if not self.client.wait_for_server(rospy.Duration(0.5)):
+            
+        if not self.client.wait_for_server(0.5):
             return self.startError("Action server {} is not available.".format(self.client.action_client.ns), -101)
-        self.client.send_goal(self.buildGoal(), done_cb= self._doneCb, feedback_cb = self._feedbackCb)
+        
+        self._goal_handle = None
+        self._goal_future = self.client.send_goal_async(self.buildGoal(), feedback_callback = self._feedback_callback)
+        self._goal_future.add_done_callback(self._goal_request_callback)
+        
+        self._get_result_future = None
+
         return True
 
-    def restart(self, goal, text="Restarting action."):
-        self.client.send_goal(goal, done_cb= self._doneCb, feedback_cb = self._feedbackCb)
-        return self.step(text)
-
+    #def restart(self, goal, text="Restarting action."):
+    #    self.client.remove_future(self._cli)
+    #    self._goal_future = self.client.send_goal_async(goal, feedback_callback=self._feedback_callback)
+    #    return self.step(text)
+    
     def execute(self):
-        if not self.fb.empty():
-            msg = self.fb.get(False)
-            return self.onFeedback(msg)
-        elif not self.res.empty():
-            msg, status = self.res.get(False)
-            return self.onDone(status, msg)
-        return self.step("")
+        res = self._goal_msg.get_and_reset()
+        if res is not None:
+            if not res:
+                # Rejected
+                return self.fail("Rejected.", -102)
+
+        fb = self._feedback_msg.get_and_reset()
+        if fb is not None:
+            return self.onFeedback(fb)
+        
+        status = self._fail_status.get_and_reset()
+        if status is not None:
+            return self.fail("Failed with status: %d" % status, -103)
+        
+        res = self._result_msg.get_and_reset()
+        if res is not None:
+            return self.onDone(res) # TODO: Remove None
+
+        return State.Running
 
     def get_result_msg(self):
         return self.client.get_result()
+    
+    def _cancel_callback(self, future):
+        cancel_response = future.result()
+        if len(cancel_response.goals_canceling) > 0:
+            log.info('Goal successfully canceled')
+        else:
+            log.info('Goal failed to cancel')
 
-    def _doneCb(self, status, msg):
-        if status == GoalStatus.RECALLED:
-            log.warn("Ignoring recalled goal.")
-            return
-        self.res.put((msg, status))
+    def _goal_request_callback(self, future: task.Future):
+        goal_handle = future.result()
+        self._goal_handle = goal_handle
+        if goal_handle.accepted:
+            self._goal_msg.set(True)
+        else:
+            self._goal_msg.set(False)
 
-    def _feedbackCb(self, msg):
-        if self.fb.empty():
-            self.fb.put(msg)
+        self._get_result_future = goal_handle.get_result_async()
+        self._get_result_future.add_done_callback(self._result_callback)
+
+    def _result_callback(self, future):
+        result = future.result().result
+        status = future.result().status # type: GoalStatus
+        
+        if status == GoalStatus.STATUS_SUCCEEDED:
+            self._result_msg.set(result)
+        else:
+            self._fail_status.set(status)
+
+    def _feedback_callback(self, msg):
+        self._feedback_msg.set(msg.feedback)
 
     def onInit(self):
         """
@@ -77,7 +148,7 @@ class PrimitiveActionClient(PrimitiveBase):
         """
         return True
 
-    def buildClient(self):
+    def buildClient(self)->action.ActionClient:
         """
         @brief To override. Called when starting the skill
         @return an action client (e.g. actionlib.SimpleActionClient)
@@ -99,10 +170,10 @@ class PrimitiveActionClient(PrimitiveBase):
         #Do something with feedback msg
         return self.step("")
 
-    def onDone(self, status, msg):
+    def onDone(self, msg):
         """
         @brief To override. Called when goal is achieved.
         @return self.success or self.fail
         """
         #Do something with result msg
-        return self.success("Finished. State: {} Result: {}".format(status, msg))
+        return self.success("Finished. Result: {}".format(msg))

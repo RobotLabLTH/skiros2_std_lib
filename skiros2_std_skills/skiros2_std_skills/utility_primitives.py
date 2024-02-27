@@ -2,7 +2,7 @@ from skiros2_skill.core.skill import SkillDescription
 from skiros2_common.core.primitive import PrimitiveBase
 from skiros2_common.core.world_element import Element
 from skiros2_common.core.params import ParamTypes
-import rospy
+
 
 #################################################################################
 # Wait
@@ -27,11 +27,11 @@ class wait(PrimitiveBase):
         return self.success("Done")
 
     def onStart(self):
-        self.last = rospy.Time.now()
+        self.last = self.node.get_clock().now()
         return True
 
     def execute(self):
-        duration = rospy.Time.now() - self.last
+        duration = self.node.get_clock().now() - self.last
         if duration.to_sec() > self.params["Duration"].value:
             return self.success("Done")
         return self.step("Waiting {}".format(self.params["Duration"].value))
