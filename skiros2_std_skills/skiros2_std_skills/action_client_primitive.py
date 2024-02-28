@@ -4,6 +4,7 @@ from skiros2_common.core.params import ParamTypes
 import skiros2_common.tools.logger as log
 import rclpy
 from rclpy import action, task
+from rclpy.time import Duration
 from actionlib_msgs.msg import GoalStatus
 import queue
 from threading import Lock
@@ -38,6 +39,11 @@ class PrimitiveActionClient(PrimitiveBase):
     (save up to 0.3 seconds). Default is True
     """
     build_client_onstart = True
+    feedback_timeout_sec = None # set to second if you want reliability
+
+    def __init__(self):
+        super().__init__()
+        self.client = None
 
     def onPreempt(self):
         """
@@ -60,17 +66,18 @@ class PrimitiveActionClient(PrimitiveBase):
         self._result_msg = AtomicVar()
         self._fail_status = AtomicVar()
 
-        if self.build_client_onstart:
+        if self.build_client_onstart or self.client is None:
             self.client = self.buildClient()
             
         if not self.client.wait_for_server(0.5):
-            return self.startError("Action server {} is not available.".format(self.client.action_client.ns), -101)
-        
+            return self.startError("Action server is not available: {}".format(self.client), -101)
+                
         self._goal_handle = None
         self._goal_future = self.client.send_goal_async(self.buildGoal(), feedback_callback = self._feedback_callback)
         self._goal_future.add_done_callback(self._goal_request_callback)
         
         self._get_result_future = None
+        self._last_feedback_timestamp = self.node.get_clock().now()
 
         return True
 
@@ -88,6 +95,7 @@ class PrimitiveActionClient(PrimitiveBase):
 
         fb = self._feedback_msg.get_and_reset()
         if fb is not None:
+            self._last_feedback_timestamp = self.node.get_clock().now()
             return self.onFeedback(fb)
         
         status = self._fail_status.get_and_reset()
@@ -97,6 +105,14 @@ class PrimitiveActionClient(PrimitiveBase):
         res = self._result_msg.get_and_reset()
         if res is not None:
             return self.onDone(res) # TODO: Remove None
+        
+        if self.feedback_timeout_sec is not None:
+            time_since_start_sec = (self.node.get_clock().now()-self._last_feedback_timestamp).nanoseconds/1.0e9 # type: Duration
+            log.info("Time since start %f, %d" % (time_since_start_sec, self.feedback_timeout_sec))
+            if time_since_start_sec > self.feedback_timeout_sec:
+                self.client.destroy()
+                self.client = None
+                return self.fail("Action feedback did not arrive within timeout of %d sec" % self.feedback_timeout_sec, -104)
 
         return State.Running
 
