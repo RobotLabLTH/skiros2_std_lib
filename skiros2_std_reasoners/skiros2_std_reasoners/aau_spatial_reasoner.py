@@ -418,7 +418,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             if not element.hasProperty("skiros:TfTimeStamp", not_none=True):
                 msg.header.stamp = Time().to_msg()
             else:
-                msg.header.stamp = Time.from_sec(element.getProperty("skiros:TfTimeStamp").value).to_msg()
+                msg.header.stamp = Time(nanoseconds=element.getProperty("skiros:TfTimeStamp").value * 1e9).to_msg()
             msg.child_frame_id = element.getProperty("skiros:FrameId").value
             msg.transform.translation.x = element.getProperty("skiros:PositionX").value
             msg.transform.translation.y = element.getProperty("skiros:PositionY").value
@@ -444,7 +444,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             if not element.hasProperty("skiros:TfTimeStamp", not_none=True):
                 msg.header.stamp = Time().to_msg()
             else:
-                msg.header.stamp = Time.from_sec(element.getProperty("skiros:TfTimeStamp").value).to_msg()
+                msg.header.stamp = Time(nanoseconds=element.getProperty("skiros:TfTimeStamp").value * 1e9).to_msg()
             msg.pose.position.x = element.getProperty("skiros:PositionX").value
             msg.pose.position.y = element.getProperty("skiros:PositionY").value
             msg.pose.position.z = element.getProperty("skiros:PositionZ").value
@@ -483,7 +483,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             return (element.setData(":Position", data[0]), element.setData(":Orientation", data[1]))
         elif set_code == ":TransformMsg":
             element.getProperty("skiros:BaseFrameId").value = str(data.header.frame_id)
-            element.getProperty("skiros:TfTimeStamp").value = data.header.stamp.to_sec()
+            element.getProperty("skiros:TfTimeStamp").value = data.header.stamp.sec + round(data.header.stamp.nanosec * 1e-9, 3)
             element.getProperty("skiros:PositionX").value = data.transform.translation.x
             element.getProperty("skiros:PositionY").value = data.transform.translation.y
             element.getProperty("skiros:PositionZ").value = data.transform.translation.z
@@ -501,7 +501,7 @@ class AauSpatialReasoner(DiscreteReasoner):
             element.getProperty("skiros:OrientationW").value = data.orientation.w
         elif set_code == ":PoseStampedMsg":
             element.getProperty("skiros:BaseFrameId").value = str(data.header.frame_id)
-            element.getProperty("skiros:TfTimeStamp").value = data.header.stamp.to_sec()
+            element.getProperty("skiros:TfTimeStamp").value = data.header.stamp.sec + round(data.header.stamp.nanosec * 1e-9, 3)
             element.getProperty("skiros:PositionX").value = data.pose.position.x
             element.getProperty("skiros:PositionY").value = data.pose.position.y
             element.getProperty("skiros:PositionZ").value = data.pose.position.z
