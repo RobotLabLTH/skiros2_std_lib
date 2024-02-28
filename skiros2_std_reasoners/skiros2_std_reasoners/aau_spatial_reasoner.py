@@ -126,8 +126,8 @@ class AauSpatialReasoner(DiscreteReasoner):
             return ((t.transform.translation.x, t.transform.translation.y, t.transform.translation.z),
                     (t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z, t.transform.rotation.w))
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
-            rclpy.logwarn_throttle(1, "[{}] No tf found between {} {}. Error: {} ".format(
-                self.__class__.__name__, base_frm, target_frm, e))
+            self._node.get_logger().warn("[{}] No tf found between {} {}. Error: {} ".format(
+                self.__class__.__name__, base_frm, target_frm, e), throttle_duration_sec=1)
             return (None, None)
 
     def transform(self, element, target_frm, duration=Duration(nanoseconds=0.0)):
@@ -151,8 +151,8 @@ class AauSpatialReasoner(DiscreteReasoner):
                 element, pose.header.frame_id, target_frm))
             return True
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
-            rclpy.logwarn_throttle(1, "[{}] {} failed to transform from base {} to base {}. Error: {}".format(
-                self.__class__.__name__, element, pose.header.frame_id, target_frm, e))
+            self._node.get_logger().warn("[{}] {} failed to transform from base {} to base {}. Error: {}".format(
+                self.__class__.__name__, element, pose.header.frame_id, target_frm, e), throttle_duration_sec=1)
             return False
 
     def _update_linked_objects(self):
