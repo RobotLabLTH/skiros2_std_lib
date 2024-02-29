@@ -10,24 +10,7 @@ import queue
 from threading import Lock
 from typing import Optional
 from action_msgs.msg import GoalStatus
-
-class AtomicVar:
-    def __init__(self, initialValue: Optional[any]=None, sharedLock: Optional[Lock] = None) -> None:
-        self.lock = sharedLock
-        self.var = initialValue
-        if self.lock is None:
-            self.lock = Lock()
-    
-    def get_and_reset(self):
-        with self.lock:
-            var = self.var
-            if var is not None:
-                self.var = None
-            return var
-
-    def set(self, var):
-        with self.lock:
-            self.var = var
+from skiros2_std_skills.utils import AtomicVar
 
 class PrimitiveActionClient(PrimitiveBase):
     """
@@ -37,6 +20,10 @@ class PrimitiveActionClient(PrimitiveBase):
 
     build_client_onstart defines if the client will be built every time the skill it is called or not
     (save up to 0.3 seconds). Default is True
+
+    feedback_timeout_sec defines a timeout in seconds for not reciving action 
+    feedback in a timely manner. Could be used to detect if the action server 
+    has gone down or experiences issues. Default is no timeout.
     """
     build_client_onstart = True
     feedback_timeout_sec = None # set to second if you want reliability
@@ -68,12 +55,20 @@ class PrimitiveActionClient(PrimitiveBase):
 
         if self.build_client_onstart or self.client is None:
             self.client = self.buildClient()
-            
+        
+        if self.client is None:
+            return self.startError("Action client returned by buildClient() is None.", -105)
+
         if not self.client.wait_for_server(0.5):
             return self.startError("Action server is not available: {}".format(self.client), -101)
                 
         self._goal_handle = None
-        self._goal_future = self.client.send_goal_async(self.buildGoal(), feedback_callback = self._feedback_callback)
+
+        goal = self.buildGoal()
+        if goal is None:
+            return self.startError("Action goal is None", -106)
+
+        self._goal_future = self.client.send_goal_async(goal, feedback_callback = self._feedback_callback)
         self._goal_future.add_done_callback(self._goal_request_callback)
         
         self._get_result_future = None
@@ -89,8 +84,7 @@ class PrimitiveActionClient(PrimitiveBase):
     def execute(self):
         res = self._goal_msg.get_and_reset()
         if res is not None:
-            if not res:
-                # Rejected
+            if res == False:
                 return self.fail("Rejected.", -102)
 
         fb = self._feedback_msg.get_and_reset()
@@ -115,9 +109,6 @@ class PrimitiveActionClient(PrimitiveBase):
                 return self.fail("Action feedback did not arrive within timeout of %d sec" % self.feedback_timeout_sec, -104)
 
         return State.Running
-
-    def get_result_msg(self):
-        return self.client.get_result()
     
     def _cancel_callback(self, future):
         cancel_response = future.result()
