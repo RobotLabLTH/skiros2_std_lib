@@ -24,9 +24,13 @@ class PrimitiveActionClient(PrimitiveBase):
     feedback_timeout_sec defines a timeout in seconds for not reciving action 
     feedback in a timely manner. Could be used to detect if the action server 
     has gone down or experiences issues. Default is no timeout.
+
+    wait_for_server_timeout defines the amount of time to wait for the action server to be alive.
+    Defaults to 1 second.
     """
     build_client_onstart = True
     feedback_timeout_sec = None # set to second if you want reliability
+    wait_for_server_timeout = 1.0
 
     def __init__(self):
         super().__init__()
@@ -59,7 +63,7 @@ class PrimitiveActionClient(PrimitiveBase):
         if self.client is None:
             return self.startError("Action client returned by buildClient() is None.", -105)
 
-        if not self.client.wait_for_server(0.5):
+        if not self.client.wait_for_server(self.wait_for_server_timeout):
             return self.startError("Action server is not available: {}".format(self.client), -101)
                 
         self._goal_handle = None
