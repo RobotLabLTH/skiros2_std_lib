@@ -122,7 +122,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                     fails.
         """
         try:
-            t = self._tlb.lookup_transform(base_frm, target_frm, Time(0), duration)
+            t = self._tlb.lookup_transform(base_frm, target_frm, Time(), duration)
             return ((t.transform.translation.x, t.transform.translation.y, t.transform.translation.z),
                     (t.transform.rotation.x, t.transform.rotation.y, t.transform.rotation.z, t.transform.rotation.w))
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
@@ -143,6 +143,10 @@ class AauSpatialReasoner(DiscreteReasoner):
         """
         try:
             pose = element.getData(":PoseStampedMsg")
+            if not pose.header.frame_id or not target_frm:
+                self._node.get_logger().warn("[{}] {} failed to transform. Empty source '{}' or target '{}' frame.".format(
+                self.__class__.__name__, element, pose.header.frame_id, target_frm))
+                return False
             self._tlb.lookup_transform(target_frm, pose.header.frame_id,
                                        pose.header.stamp, duration)
             element.setData(":PoseStampedMsg", self._tlb.transform(pose, target_frm))
@@ -174,10 +178,10 @@ class AauSpatialReasoner(DiscreteReasoner):
             try:
                 update = self._vector_distance(
                     new_p, old_p) > 1e-6 or self._vector_distance(new_o, old_o) > 1e-5
-            except TypeError as e:
+            except TypeError:
                 update = new_p is not None and new_o is not None
             if update:
-                e = deepcopy(self._wmi.get_element(k))
+                # e = deepcopy(self._wmi.get_element(k))
                 e.setData(":Pose", (new_p, new_o))
                 self._wmi.update_properties(e, self.__class__.__name__, self)
         for e in self._e_to_update:
@@ -676,7 +680,7 @@ class AauSpatialReasoner(DiscreteReasoner):
                 if obj.getProperty("skiros:FrameId").value == "":
                     obj.setProperty("skiros:FrameId", "obj_temp_frame")
                     self._tlb.settransform(self.getData(obj, ":TransformMsg"), "AauSpatialReasoner")
-                self._tlb.lookup_transform(obj_base_frame, sub_frame, Time(0), Duration(nanoseconds=10**9))
+                self._tlb.lookup_transform(obj_base_frame, sub_frame, Time(), Duration(nanoseconds=10**9))
                 obj.setData(":PoseStampedMsg", self._tlb.transform(obj.getData(":PoseStampedMsg"), sub_frame))
             except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 log.error("[computeRelations]", "Couldn't transform object in frame {} to frame {}.".format(
