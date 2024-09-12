@@ -47,6 +47,7 @@ class AauSpatialReasoner(DiscreteReasoner):
         """
         self._tlb = tf.Buffer()
         self._tl = tf.TransformListener(self._tlb)
+        self._create_time = rospy.Time.now()
 
     def parse(self, element, action):
         """
@@ -120,6 +121,9 @@ class AauSpatialReasoner(DiscreteReasoner):
                     orientation quaternion. (None, None) if transformation
                     fails.
         """
+        # Grace period to fill the buffer
+        if (rospy.Time.now() - self._create_time) < rospy.Duration.from_sec(0.3):
+            rospy.sleep(rospy.Duration.from_sec(0.3)-(rospy.Time.now() - self._create_time))
         try:
             t = self._tlb.lookup_transform(base_frm, target_frm, rospy.Time(0), duration)
             return ((t.transform.translation.x, t.transform.translation.y, t.transform.translation.z),
@@ -140,6 +144,9 @@ class AauSpatialReasoner(DiscreteReasoner):
 
         @return     True if pose was changed, False otherwise
         """
+        # Grace period to fill the buffer
+        if (rospy.Time.now() - self._create_time) < rospy.Duration.from_sec(0.3):
+            rospy.sleep(rospy.Duration.from_sec(0.3)-(rospy.Time.now() - self._create_time))
         try:
             pose = element.getData(":PoseStampedMsg")
             self._tlb.lookup_transform(target_frm, pose.header.frame_id,
