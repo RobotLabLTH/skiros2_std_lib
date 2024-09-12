@@ -73,6 +73,13 @@ class PrimitiveThreadBase(PrimitiveBase):
             # Send any exception to the skiros gui.
             return self.fail(self.exception_msg, -1)
 
+    def set_progress_message(self, msg):
+        """
+        @brief      Set the progress message which will be reported by the
+                    skill
+        """
+        self.status = msg
+
     @final
     def _run(self):
         self._skill_state = self.run()
