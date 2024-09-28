@@ -38,7 +38,7 @@ class task_plan(SkillBase):
         return self._tm.plan(self.params["Goal"].value, self._done_planning)
 
     def _done_planning(self, status, result):
-        log.info(f"Planning returned. Status: '{"succeeded" if status == GoalStatus.STATUS_SUCCEEDED: else "failed"}'")
+        log.info(f"Planning returned. Status: '{status}'")
         self._action_status = result.progress_code
         self._action_msg = result.progress_message
 
