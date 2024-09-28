@@ -1,3 +1,4 @@
+from action_msgs.msg import GoalStatus
 from skiros2_skill.core.skill import SkillDescription, SkillBase, SerialStar, ParallelFf, State, SkillWrapper
 from skiros2_common.core.world_element import Element
 from skiros2_common.core.params import ParamTypes
@@ -33,12 +34,13 @@ class task_plan(SkillBase):
     def onStart(self):
         self._action_status = None
         self._action_msg = None
-        self._tm = TaskManagerInterface()
+        self._tm = TaskManagerInterface(self.node)
         return self._tm.plan(self.params["Goal"].value, self._done_planning)
 
-    def _done_planning(self, status, msg):
-        self._action_status = msg.progress_code
-        self._action_msg = msg.progress_message
+    def _done_planning(self, status, result):
+        log.info(f"Planning returned. Status: '{"succeeded" if status == GoalStatus.STATUS_SUCCEEDED: else "failed"}'")
+        self._action_status = result.progress_code
+        self._action_msg = result.progress_message
 
     def _add_children(self, skill, children):
         string = ""
