@@ -125,7 +125,7 @@ class wm_set_properties(PrimitiveBase):
             src.setProperty(k, v)
         self.params["Src"].value = src
         self._wmi.update_element_properties(src)
-        return self.success("Setted properties to {}. {}".format(src.id, props))
+        return self.success("Set properties to {}. {}".format(src.id, props))
 
 #################################################################################
 # WmMoveObject
