@@ -52,33 +52,51 @@ class WmSetRelation(SkillDescription):
         self.addParam("Relation", str, ParamTypes.Required)
         self.addParam("Dst", Element("sumo:Object"), ParamTypes.Required)
         self.addParam("RelationState", True, ParamTypes.Required)
+        self.addParam("OldDstToRemove", Element("sumo:Object"), ParamTypes.Optional)
+        self.addParam("OldSrcToRemove", Element("sumo:Object"), ParamTypes.Optional)
 
 
 class wm_set_relation(PrimitiveBase):
     def createDescription(self):
         self.setDescription(WmSetRelation(), self.__class__.__name__)
 
+    def _set_relation(self, src, relation, dst):
+        src.setRelation("-1", relation, dst.id)
+        dst.setRelation(src.id, relation, "-1")
+        self.action_strs.append(f"Set {src.id}-{relation}-{dst.id}.")
+
+    def _remove_relation(self, src, relation, dst):
+        rel = dst.getRelation(src.id, relation, "-1")
+        if rel is not None:
+            dst.removeRelation(rel)
+        rel = src.getRelation("-1", relation, dst.id)
+        if rel is not None:
+            src.removeRelation(rel)
+        self.action_strs.append(f"Removed {src.id}-{relation}-{dst.id}.")
+
     def execute(self):
         src = self.params["Src"].value
         relation = self.params["Relation"].value
         dst = self.params["Dst"].value
+        old_dst = self.params["OldDstToRemove"].value
+        old_src = self.params["OldSrcToRemove"].value
+        self.action_strs = []
         if src == dst:
             return self.fail("Can not relate {} with itself.".format(src), -1)
         if self.params["RelationState"].value:
-            src.setRelation("-1", relation, dst.id)
-            dst.setRelation(src.id, relation, "-1")
+            self._set_relation(src, relation, dst)
+            if old_dst.id and old_dst.id != dst.id:
+                self._remove_relation(src, relation, old_dst)
+            elif old_src.id:
+                self._remove_relation(old_src, relation, dst)
         else:
-            rel = dst.getRelation(src.id, relation, "-1")
-            if rel is not None:
-                dst.removeRelation(rel)
-            rel = src.getRelation("-1", relation, dst.id)
-            if rel is not None:
-                src.removeRelation(rel)
+            self._remove_relation(src, relation, dst)
+            
         self.params["Src"].value = src
         self.params["Dst"].value = dst
         self._wmi.update_element(src)
         self._wmi.update_element(dst)
-        return self.success("{} {}-{}-{}".format("Set" if self.params["RelationState"].value else "Unset", src.id, relation, dst.id))
+        return self.success(" ".join(self.action_strs))
 
 #################################################################################
 # Set relation
