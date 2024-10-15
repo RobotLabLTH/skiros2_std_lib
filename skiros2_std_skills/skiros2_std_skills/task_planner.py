@@ -20,7 +20,7 @@ class task_plan(SkillBase):
                 primitive to be a compound skill.
     """
     def createDescription(self):
-        self.setDescription(TaskPlan(), self.__class__.__name__)
+        self.setDescription(TaskPlan(), "Task Planning from PDDL Goal")
         self._expand_on_start = True
         self._skill_to_expand = None
 
