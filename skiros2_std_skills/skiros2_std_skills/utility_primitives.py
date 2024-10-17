@@ -2,6 +2,7 @@ from skiros2_skill.core.skill import SkillDescription
 from skiros2_common.core.primitive import PrimitiveBase
 from skiros2_common.core.world_element import Element
 from skiros2_common.core.params import ParamTypes
+from skiros2_std_skills.thread_primitive import PrimitiveThreadBase
 
 
 #################################################################################
@@ -56,7 +57,7 @@ class WmSetRelation(SkillDescription):
         self.addParam("OldSrcToRemove", Element("sumo:Object"), ParamTypes.Optional)
 
 
-class wm_set_relation(PrimitiveBase):
+class wm_set_relation(PrimitiveThreadBase):
     def createDescription(self):
         self.setDescription(WmSetRelation(), self.__class__.__name__)
 
@@ -74,7 +75,7 @@ class wm_set_relation(PrimitiveBase):
             src.removeRelation(rel)
         self.action_strs.append(f"Removed {src.id}-{relation}-{dst.id}.")
 
-    def execute(self):
+    def run(self):
         src = self.params["Src"].value
         relation = self.params["Relation"].value
         dst = self.params["Dst"].value
@@ -91,7 +92,7 @@ class wm_set_relation(PrimitiveBase):
                 self._remove_relation(old_src, relation, dst)
         else:
             self._remove_relation(src, relation, dst)
-            
+
         self.params["Src"].value = src
         self.params["Dst"].value = dst
         self._wmi.update_element(src)
